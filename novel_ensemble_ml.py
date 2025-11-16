@@ -1195,7 +1195,6 @@ class AdaptiveEnsembleClassifier:
             print(f"   Underfitting: {underfitting_status}")
             
             # Statistical significance (stability)
-            cv_std = cv_scores.std()
             if cv_std < 0.02:
                 stability_status = "✅ HIGHLY STABLE"
             elif cv_std < 0.05:
@@ -1206,8 +1205,8 @@ class AdaptiveEnsembleClassifier:
             
             base_results[name] = {
                 'cv_accuracy': cv_mean,
-                'cv_std': cv_scores.std(),
-                'cv_accuracy_std': cv_scores.std(),  # Add for compatibility
+                'cv_std': cv_std,
+                'cv_accuracy_std': cv_std,  # Add for compatibility
                 'test_accuracy': test_accuracy,
                 'test_precision': test_precision,
                 'test_recall': test_recall,
