@@ -3,6 +3,12 @@
 Cross-Dataset Validation Study - GPU ACCELERATED VERSION
 Tests the binary ensemble model trained on UNSW-NB15 against BoT-IoT dataset
 Optimized for NVIDIA GPUs with 48GB VRAM
+
+GPU Acceleration Strategy:
+- Fast CSV loading with cuDF (5-10x faster)
+- GPU array operations with CuPy for numerical computations
+- Pandas for complex transformations (better compatibility)
+- Automatic fallback to CPU if GPU unavailable
 """
 
 import pandas as pd
@@ -192,6 +198,11 @@ class CrossDatasetValidator:
         print(f"\n🔄 TRANSFORMING BOT-IOT TO UNSW FORMAT")
         print("=" * 50)
         
+        # Convert cuDF to pandas for transformation (cuDF has issues with complex operations)
+        if GPU_AVAILABLE and isinstance(botiot_df, cudf.DataFrame):
+            print(f"   Converting cuDF to pandas for transformation...")
+            botiot_df = botiot_df.to_pandas()
+        
         # Create new dataframe with UNSW-NB15 structure
         unsw_df = pd.DataFrame()
         
@@ -254,45 +265,26 @@ class CrossDatasetValidator:
             if len(missing_features) > 10:
                 print(f"   ... and {len(missing_features) - 10} more")
         
-        # Basic data cleaning - GPU ACCELERATED
-        print(f"\n🧹 Data Cleaning (GPU Accelerated):")
+        # Basic data cleaning (using pandas for compatibility)
+        print(f"\n🧹 Data Cleaning:")
         
         # Convert all columns to numeric (except categorical ones we'll encode)
         categorical_to_encode = ['service', 'state', 'proto']
         
-        if GPU_AVAILABLE and isinstance(unsw_df, cudf.DataFrame):
-            # GPU-accelerated numeric conversion
-            for col in unsw_df.columns:
-                if col not in categorical_to_encode and col != 'label':
-                    try:
-                        unsw_df[col] = cudf.to_numeric(unsw_df[col], errors='coerce')
-                    except:
-                        pass
-            
-            # Handle missing values (GPU)
-            missing_before = unsw_df.isnull().sum().sum()
-            unsw_df = unsw_df.fillna(0)
-            print(f"   Filled {missing_before:,} missing values with 0 (GPU)")
-            
-            # Handle infinite values (GPU)
-            numeric_cols = unsw_df.select_dtypes(include=['float', 'int']).columns
-            for col in numeric_cols:
-                unsw_df[col] = unsw_df[col].replace([cp.inf, -cp.inf], 0)
-            print(f"   Replaced infinite values with 0 (GPU)")
-        else:
-            # CPU fallback
-            for col in unsw_df.columns:
-                if col not in categorical_to_encode and col != 'label':
-                    unsw_df[col] = pd.to_numeric(unsw_df[col], errors='coerce')
-            
-            missing_before = unsw_df.isnull().sum().sum()
-            unsw_df = unsw_df.fillna(0)
-            print(f"   Filled {missing_before:,} missing values with 0")
-            
-            inf_count = np.isinf(unsw_df.select_dtypes(include=[np.number])).sum().sum()
-            if inf_count > 0:
-                unsw_df = unsw_df.replace([np.inf, -np.inf], 0)
-                print(f"   Replaced {inf_count:,} infinite values with 0")
+        for col in unsw_df.columns:
+            if col not in categorical_to_encode and col != 'label':
+                unsw_df[col] = pd.to_numeric(unsw_df[col], errors='coerce')
+        
+        # Handle missing values
+        missing_before = unsw_df.isnull().sum().sum()
+        unsw_df = unsw_df.fillna(0)
+        print(f"   Filled {missing_before:,} missing values with 0")
+        
+        # Handle infinite values
+        inf_count = np.isinf(unsw_df.select_dtypes(include=[np.number])).sum().sum()
+        if inf_count > 0:
+            unsw_df = unsw_df.replace([np.inf, -np.inf], 0)
+            print(f"   Replaced {inf_count:,} infinite values with 0")
         
         # Encode categorical variables using TRAINED encoders (NO LEAKAGE!)
         categorical_cols = ['service', 'state', 'proto']
@@ -519,40 +511,31 @@ class CrossDatasetValidator:
             # Apply scaling if scaler is available - GPU ACCELERATED
             if isinstance(self.binary_system, dict) and 'scaler' in self.binary_system:
                 scaler = self.binary_system['scaler']
-                print(f"\n⚖️  Applying feature scaling (GPU Accelerated)...")
+                print(f"\n⚖️  Applying feature scaling...")
                 
-                # Convert to numpy if cuDF
-                if GPU_AVAILABLE and isinstance(X_test, cudf.DataFrame):
-                    X_test_np = X_test.to_pandas().values
-                else:
-                    X_test_np = X_test.values
+                # Get numpy array
+                X_test_np = X_test.values if hasattr(X_test, 'values') else X_test
                 
-                # Move to GPU for scaling if available
-                if GPU_AVAILABLE:
-                    X_test_gpu = cp.asarray(X_test_np)
-                    # Use GPU scaler if available, otherwise CPU
-                    X_test_scaled = scaler.transform(X_test_np)
-                    X_test_scaled = cp.asarray(X_test_scaled)  # Move result to GPU
-                    print(f"   Scaling completed on GPU")
-                else:
-                    X_test_scaled = scaler.transform(X_test_np)
+                # Scale on CPU (sklearn scaler)
+                X_test_scaled = scaler.transform(X_test_np)
+                
+                # Move to GPU if available for faster array operations
+                if GPU_AVAILABLE and self.use_gpu:
+                    X_test_scaled = cp.asarray(X_test_scaled)
+                    print(f"   ✅ Data moved to GPU for accelerated operations")
                 
                 # Check scaled distribution
-                if GPU_AVAILABLE:
-                    X_scaled_sample = cp.asnumpy(X_test_scaled[:1000])  # Sample for stats
-                    X_scaled_df = pd.DataFrame(X_scaled_sample)
-                else:
-                    X_scaled_df = pd.DataFrame(X_test_scaled)
+                X_scaled_sample = cp.asnumpy(X_test_scaled[:1000]) if GPU_AVAILABLE and isinstance(X_test_scaled, cp.ndarray) else X_test_scaled[:1000]
+                X_scaled_df = pd.DataFrame(X_scaled_sample)
                     
                 scaled_stats = X_scaled_df.describe()
                 print(f"   After scaling:")
                 print(f"   Mean range: [{scaled_stats.loc['mean'].min():.2f}, {scaled_stats.loc['mean'].max():.2f}]")
                 print(f"   Std range:  [{scaled_stats.loc['std'].min():.2f}, {scaled_stats.loc['std'].max():.2f}]")
             else:
-                if GPU_AVAILABLE and isinstance(X_test, cudf.DataFrame):
-                    X_test_scaled = cp.asarray(X_test.to_pandas().values)
-                else:
-                    X_test_scaled = X_test.values
+                X_test_scaled = X_test.values if hasattr(X_test, 'values') else X_test
+                if GPU_AVAILABLE and self.use_gpu:
+                    X_test_scaled = cp.asarray(X_test_scaled)
             
             # Apply feature selection if indices are available - GPU ACCELERATED
             if isinstance(self.binary_system, dict) and 'selected_feature_indices' in self.binary_system:
