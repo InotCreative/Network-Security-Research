@@ -1919,6 +1919,19 @@ class AdaptiveEnsembleClassifier:
         print("🧠 Training meta-learner...")
         self.meta_learner.fit(base_predictions, y)
         
+        # CRITICAL: Perform CV on ensemble to get proper CV scores for statistical testing
+        print("🔬 Performing ensemble cross-validation...")
+        from sklearn.model_selection import cross_val_score, StratifiedKFold
+        try:
+            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            # CV on the meta-learner using base predictions
+            ensemble_cv_scores = cross_val_score(self.meta_learner, base_predictions, y, cv=cv, scoring='accuracy')
+            self.ensemble_cv_scores = ensemble_cv_scores
+            print(f"   ✅ Ensemble CV: {np.mean(ensemble_cv_scores):.4f} ± {np.std(ensemble_cv_scores):.4f}")
+        except Exception as e:
+            print(f"   ⚠️  Ensemble CV failed: {e}")
+            self.ensemble_cv_scores = None
+        
         # Optimize mixing ratio on validation set
         print("🔬 Optimizing meta-learner mixing ratio...")
         self.optimal_mixing_ratio = self._optimize_mixing_ratio(X, y, base_predictions, classification_type)
