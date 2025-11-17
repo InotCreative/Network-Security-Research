@@ -2162,9 +2162,9 @@ class AdaptiveEnsembleClassifier:
                 print(f"\n🔬 Using mixing ratio: {mixing_ratio:.1f} for predictions")
                 self._ratio_reported = True
             
-            # For multiclass, need to broadcast weighted_proba
-            weighted_proba_broadcast = np.tile(weighted_proba[:, np.newaxis], (1, self.num_classes))
-            final_proba = mixing_ratio * meta_proba + (1 - mixing_ratio) * weighted_proba_broadcast
+            # For multiclass: weighted_proba is already (n_samples, n_classes), no broadcasting needed
+            # Both meta_proba and weighted_proba should have shape (n_samples, n_classes)
+            final_proba = mixing_ratio * meta_proba + (1 - mixing_ratio) * weighted_proba
             
             # Report fallback usage if any occurred
             if hasattr(self, 'fallback_count') and self.fallback_count:
