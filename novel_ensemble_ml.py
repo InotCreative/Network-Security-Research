@@ -723,7 +723,14 @@ class AdaptiveEnsembleClassifier:
         
         # Meta-learner for combining predictions
         if num_classes > 2:
-            self.meta_learner = OneVsRestClassifier(LogisticRegression(random_state=42))
+            # Use multinomial logistic regression with balanced class weights
+            self.meta_learner = LogisticRegression(
+                multi_class='multinomial',
+                solver='lbfgs',
+                class_weight='balanced',  # Handle imbalanced classes
+                max_iter=1000,
+                random_state=42
+            )
         else:
             self.meta_learner = LogisticRegression(random_state=42)
         
@@ -1783,7 +1790,7 @@ class AdaptiveEnsembleClassifier:
                                 base_predictions[:, i] = proba[:, 0]
                         else:
                             proba = clf.predict_proba(X)
-                            base_predictions[:, i] = np.max(proba, axis=1)
+                            # FIX: Keep all_probas for concatenation (removed buggy np.max line)
                     except Exception as e:
                         print(f"      ⚠️  Error getting predictions from cached {name}: {e}")
                         base_predictions[:, i] = 0.5
@@ -1871,7 +1878,7 @@ class AdaptiveEnsembleClassifier:
                         base_predictions[:, i] = proba[:, 0]
                 else:
                     proba = clf.predict_proba(X)
-                    base_predictions[:, i] = np.max(proba, axis=1)
+                    # FIX: Keep all_probas for concatenation (removed buggy np.max line)
             except Exception as e:
                 print(f"      ⚠️  Error storing predictions for {name}: {e}")
                 try:
@@ -2141,7 +2148,7 @@ class AdaptiveEnsembleClassifier:
                     proba = clf.predict_proba(X_clean)
                     all_probas.append(proba)
                     # Use max probability as feature for meta-learner (confidence measure)
-                    base_predictions[:, i] = np.max(proba, axis=1)
+                    # FIX: Keep all_probas for concatenation (removed buggy np.max line)
                 except Exception as e:
                     print(f"⚠️  Model {name} predict_proba failed: {e}")
                     # Fallback: uniform probability distribution
@@ -3081,7 +3088,7 @@ class NovelEnsembleMLSystem:
                                 base_predictions[:, i] = proba[:, 1] if proba.shape[1] > 1 else proba[:, 0]
                             else:
                                 proba = clf.predict_proba(X_selected)
-                                base_predictions[:, i] = np.max(proba, axis=1)
+                                # FIX: Keep all_probas for concatenation (removed buggy np.max line)
                         except:
                             base_predictions[:, i] = 0.5
                     
