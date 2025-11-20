@@ -515,7 +515,112 @@ class CrossDatasetValidator:
                 X_test_selected = X_test_scaled
             
             print(f"   Final feature matrix: {X_test_selected.shape}")
+            # Make predictions using the cached model
+            print("🔮 Making predictions...")
             
+            # Handle different types of loaded models
+            skip_metrics = False
+            try:
+                # Check if it's a full system object
+                if hasattr(self.binary_system, 'predict'):
+                    # Full system object
+                    test_df_copy = X_test.copy()
+                    test_df_copy['label'] = y_true  # Add dummy label for preprocessing
+                    y_pred = self.binary_system.predict(test_df_copy)
+                    y_proba = self.binary_system.predict_proba(test_df_copy)
+                    y_true = test_df_copy['label'].values
+                elif hasattr(self.binary_system, 'classifier'):
+                    # System with classifier attribute
+                    y_pred = self.binary_system.classifier.predict(X_test_selected)
+                    y_proba = self.binary_system.classifier.predict_proba(X_test_selected)
+                elif isinstance(self.binary_system, dict):
+                    # Dictionary containing model components
+                    print("   📦 Loaded model is a dictionary, extracting classifier...")
+                    
+                    # Look for the actual model in the dictionary
+                    model = None
+                    if 'classifier' in self.binary_system:
+                        model = self.binary_system['classifier']
+                    elif 'model' in self.binary_system:
+                        model = self.binary_system['model']
+                    else:
+                        # Try to find any sklearn-like model in the dict
+                        for key, value in self.binary_system.items():
+                            if hasattr(value, 'predict') and hasattr(value, 'predict_proba'):
+                                model = value
+                                print(f"   Found model in key: {key}")
+                                break
+                    
+                    if model is None:
+                        raise ValueError("No suitable model found in the loaded dictionary")
+                    
+                    # Use the extracted model with properly prepared features
+                    y_proba = model.predict_proba(X_test_selected)
+                    
+                    # FIX: Use adaptive threshold instead of fixed 0.5
+                    print(f"\n🔧 APPLYING ADAPTIVE THRESHOLD FIX...")
+                    y_pred, optimal_threshold, adaptive_results = self.evaluate_with_adaptive_threshold(
+                        y_true, y_proba
+                    )
+                    
+                    # Extract metrics from adaptive evaluation
+                    accuracy = adaptive_results['accuracy']
+                    precision = adaptive_results['precision']
+                    recall = adaptive_results['recall']
+                    f1 = adaptive_results['f1']
+                    skip_metrics = True
+                    
+                else:
+                    # Direct model object
+                    y_pred = self.binary_system.predict(X_test_selected)
+                    y_proba = self.binary_system.predict_proba(X_test_selected)
+                    
+            except Exception as e:
+                print(f"⚠️  Prediction failed: {e}")
+                print(f"   Model type: {type(self.binary_system)}")
+                if isinstance(self.binary_system, dict):
+                    print(f"   Dictionary keys: {list(self.binary_system.keys())}")
+                raise e
+            
+            # Diagnostic: Check prediction distribution
+            pred_unique, pred_counts = np.unique(y_pred, return_counts=True)
+            print(f"\n🔍 PREDICTION DISTRIBUTION:")
+            print("-" * 50)
+            for pred_class, pred_count in zip(pred_unique, pred_counts):
+                pred_percentage = (pred_count / len(y_pred)) * 100
+                class_name = "Normal" if pred_class == 0 else "Attack"
+                print(f"   Predicted {class_name} ({pred_class}): {pred_count:,} samples ({pred_percentage:.2f}%)")
+            
+            # Check if model is predicting only one class
+            if len(pred_unique) == 1:
+                print(f"\n⚠️  WARNING: Model is predicting ONLY ONE CLASS!")
+                print(f"   This indicates the model has completely failed to generalize")
+                print(f"   Predicted class: {pred_unique[0]} ({'Normal' if pred_unique[0] == 0 else 'Attack'})")
+            
+            # Calculate initial metrics (if not already done by adaptive threshold)
+            if not skip_metrics:
+                accuracy = accuracy_score(y_true, y_pred)
+                precision = precision_score(y_true, y_pred, zero_division=0)
+                recall = recall_score(y_true, y_pred, zero_division=0)
+                f1 = f1_score(y_true, y_pred, zero_division=0)
+            
+            # AUC score
+            if len(y_proba.shape) > 1 and y_proba.shape[1] > 1:
+                auc = roc_auc_score(y_true, y_proba[:, 1])
+                attack_proba = y_proba[:, 1]
+            else:
+                auc = roc_auc_score(y_true, y_proba)
+                attack_proba = y_proba
+            
+            # Analyze prediction confidence
+            print(f"\n🎲 PREDICTION CONFIDENCE ANALYSIS:")
+            print("-" * 50)
+            print(f"   Attack probability - Mean: {attack_proba.mean():.4f}")
+            print(f"   Attack probability - Std:  {attack_proba.std():.4f}")
+            print(f"   Attack probability - Min:  {attack_proba.min():.4f}")
+            print(f"   Attack probability - Max:  {attack_proba.max():.4f}")
+            
+            # Check if probabilities are all similar (indicating model uncertainty)
             # Check if probabilities are all similar (indicating model uncertainty)
             if attack_proba.std() < 0.1:
                 print(f"\n   ⚠️  Low probability variance detected!")

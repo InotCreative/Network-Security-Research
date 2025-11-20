@@ -2156,8 +2156,11 @@ class AdaptiveEnsembleClassifier:
                     all_probas.append(uniform_proba)
                     base_predictions[:, i] = 1.0 / self.num_classes  # Neutral confidence
             
-            # Meta-learner prediction using base classifier confidences
-            meta_proba = self.meta_learner.predict_proba(base_predictions)
+            # Meta-learner prediction using stacked probability distributions
+            # FIX: Stack all probability distributions horizontally for meta-learner
+            # Shape: (n_samples, n_classifiers * n_classes)
+            stacked_probas = np.hstack(all_probas)
+            meta_proba = self.meta_learner.predict_proba(stacked_probas)
             
             # Adaptive weighted combination of probability matrices
             weighted_proba = np.zeros((X.shape[0], self.num_classes))
