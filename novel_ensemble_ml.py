@@ -1645,7 +1645,8 @@ class AdaptiveEnsembleClassifier:
             weighted_proba_val += (weight / total_weight) * base_pred_val[:, i]
         
         # Test different mixing ratios
-        ratios_to_test = [0.0, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]
+# Test different mixing ratios
+        ratios_to_test = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
         results = []
         
         print(f"\n   {'Ratio':<8} {'Acc':<8} {'Prec':<8} {'Rec':<8} {'F1':<8} {'AUC':<8} {'Bal-Acc':<8}")
@@ -1705,7 +1706,7 @@ class AdaptiveEnsembleClassifier:
             print(f"   {ratio_label:<8} {acc:<8.4f} {prec:<8.4f} {rec:<8.4f} {f1:<8.4f} {auc:<8.4f} {bal_acc:<8.4f}")
         
         # Select best ratio based on AUC (most robust metric)
-        best_result = max(results, key=lambda x: x['auc'])
+        best_result = max(results, key=lambda x: 0.6 * x['auc'] + 0.4 * x['f1'])
         best_ratio = best_result['ratio']
         
         print(f"\n   ✅ Optimal mixing ratio: {best_ratio:.1f}")
@@ -2089,7 +2090,33 @@ class AdaptiveEnsembleClassifier:
             
             for i, (name, clf) in enumerate(self.base_classifiers.items()):
                 try:
-                    base_predictions[:, i] = clf.predict_proba(X_clean)[:, 1]
+                    proba_temp = clf.predict_proba(X_clean)
+                    base_predictions[:, i] = proba_temp[:, 1]
+                    
+                    # FIX: Auto-detect and flip inverted SVM predictions
+                    if name == 'svm':
+                        # Check if we need to initialize flip flag
+                        if not hasattr(self, '_svm_flip_checked'):
+                            self._svm_flip_checked = False
+                            self._svm_should_flip = False
+                        
+                        # Only check once during first prediction
+                        if not self._svm_flip_checked:
+                            # Use validation approach: check if mean prob aligns with class distribution
+                            mean_prob = base_predictions[:, i].mean()
+                            mean_label = 0.5 if not hasattr(self, 'training_data') else self.training_data[1].mean()
+                            
+                            # If predictions are inverted, mean prob will be far from mean label
+                            if abs(mean_prob - mean_label) > 0.3:
+                                self._svm_should_flip = True
+                                print(f"   🔄 SVM predictions detected as inverted - auto-flipping")
+                            
+                            self._svm_flip_checked = True
+                        
+                        # Apply flip if needed
+                        if self._svm_should_flip:
+                            base_predictions[:, i] = 1 - base_predictions[:, i]
+                            
                 except Exception as e:
                     print(f"⚠️  Model {name} predict_proba failed: {e}")
                     base_predictions[:, i] = 0.5  # Neutral prediction
