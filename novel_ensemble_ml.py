@@ -688,8 +688,8 @@ class AdaptiveEnsembleClassifier:
                                class_weight=class_weight, alpha=0.01, penalty='l2'),  # OVERFITTING FIX
             'knn': KNeighborsClassifier(n_neighbors=7),
             'nb': GaussianNB(),
-            'lr': OneVsRestClassifier(LogisticRegression(random_state=42, max_iter=1000)) if num_classes > 2 
-                  else LogisticRegression(random_state=42, max_iter=1000),
+            'lr': OneVsRestClassifier(LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced')) if num_classes > 2 
+                  else LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced'),
             'dt': DecisionTreeClassifier(random_state=42, max_depth=10,
                                        class_weight=class_weight)
         }
