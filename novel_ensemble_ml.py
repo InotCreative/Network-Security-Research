@@ -1156,22 +1156,26 @@ class AdaptiveEnsembleClassifier:
             
             # Get predictions with proper handling
             if name == 'svm' and hasattr(clf, 'predict_proba'):
-                # SVM: Check for inversion and flip DECISION only
+                # SVM: Check for inversion and flip PROBABILITIES
                 y_proba_raw = clf.predict_proba(X_test)
                 y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
                 
                 mean_prob = y_proba_pos.mean()
                 # If inverted: mean_prob will be ~0.36 when actual is ~0.64
                 if mean_prob < 0.5 and mean_label > 0.5:
-                    # SVM is predicting LOW probabilities when should predict HIGH
-                    print(f"   🔄 Detected inverted SVM - flipping for evaluation")
-                    y_pred = (y_proba_pos < 0.5).astype(int)  # INVERT the threshold!
-                else:
-                    y_pred = (y_proba_pos > 0.5).astype(int)
+                    # SVM probabilities are inverted - flip them!
+                    print(f"   🔄 Detected inverted SVM - flipping probabilities for evaluation")
+                    y_proba_pos = 1 - y_proba_pos  # FLIP THE PROBABILITIES
+                
+                # Use normal threshold on (possibly flipped) probabilities
+                y_pred = (y_proba_pos > 0.5).astype(int)
             else:
-                # For all other models: just use clf.predict()
-                # class_weight='balanced' already handles the decision threshold
-                y_pred = clf.predict(X_test)
+                # For LR and other models: use argmax on predict_proba (more robust than .predict())
+                if hasattr(clf, 'predict_proba'):
+                    y_proba = clf.predict_proba(X_test)
+                    y_pred = np.argmax(y_proba, axis=1)  # Choose class with highest probability
+                else:
+                    y_pred = clf.predict(X_test)
             
             test_accuracy = accuracy_score(y_test, y_pred)
             test_precision = precision_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro', zero_division=0)
@@ -1817,7 +1821,7 @@ class AdaptiveEnsembleClassifier:
                                 base_predictions[:, i] = proba[:, 0]
                         else:
                             proba = clf.predict_proba(X)
-                            # FIX: Keep all_probas for concatenation (removed buggy np.max line)
+base_predictions[:, i] = np.max(proba, axis=1)
                     except Exception as e:
                         print(f"      ⚠️  Error getting predictions from cached {name}: {e}")
                         base_predictions[:, i] = 0.5
@@ -2201,7 +2205,8 @@ class AdaptiveEnsembleClassifier:
                     proba = clf.predict_proba(X_clean)
                     all_probas.append(proba)
                     # Use max probability as feature for meta-learner (confidence measure)
-                    # FIX: Keep all_probas for concatenation (removed buggy np.max line)
+                    # Use max probability as confidence for meta-learner
+                    base_predictions[:, i] = np.max(proba, axis=1)
                 except Exception as e:
                     print(f"⚠️  Model {name} predict_proba failed: {e}")
                     # Fallback: uniform probability distribution
@@ -2209,11 +2214,9 @@ class AdaptiveEnsembleClassifier:
                     all_probas.append(uniform_proba)
                     base_predictions[:, i] = 1.0 / self.num_classes  # Neutral confidence
             
-            # Meta-learner prediction using stacked probability distributions
-            # FIX: Stack all probability distributions horizontally for meta-learner
-            # Shape: (n_samples, n_classifiers * n_classes)
-            stacked_probas = np.hstack(all_probas)
-            meta_proba = self.meta_learner.predict_proba(stacked_probas)
+            # Meta-learner prediction using base predictions (max probabilities)
+            # Shape: (n_samples, n_classifiers) - one confidence value per classifier
+            meta_proba = self.meta_learner.predict_proba(base_predictions)
             
             # Adaptive weighted combination of probability matrices
             weighted_proba = np.zeros((X.shape[0], self.num_classes))
