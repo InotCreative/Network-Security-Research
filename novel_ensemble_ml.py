@@ -715,10 +715,19 @@ class AdaptiveEnsembleClassifier:
         # Add SVM with optimized hyperparameters for network intrusion detection
         # Using RBF kernel with optimized C and gamma for better performance
         # Limited max_iter to prevent excessive training time on large datasets
-        self.base_classifiers['svm'] = SVC(
-            probability=True, random_state=42, kernel='rbf',
-            C=10.0, gamma='scale', class_weight=class_weight, 
-            max_iter=5000, cache_size=500  # Increased cache for better performance
+        from sklearn.svm import LinearSVC
+        from sklearn.calibration import CalibratedClassifierCV
+        
+        self.base_classifiers['svm'] = CalibratedClassifierCV(
+            LinearSVC(
+                C=1.0,                      # Lower regularization (was 10.0)
+                class_weight=class_weight,  # Handle imbalance
+                random_state=42,
+                max_iter=2000,              # Reduced (linear converges faster)
+                dual=False                  # Better for n_samples > n_features
+            ),
+            cv=3,                           # 3-fold calibration for probabilities
+            method='sigmoid'                # Platt scaling for probability calibration
         )
         
         # Meta-learner for combining predictions
@@ -728,11 +737,11 @@ class AdaptiveEnsembleClassifier:
                 multi_class='multinomial',
                 solver='lbfgs',
                 class_weight='balanced',  # Handle imbalanced classes
-                max_iter=1000,
+                max_iter=2000,
                 random_state=42
             )
         else:
-            self.meta_learner = LogisticRegression(random_state=42)
+            self.meta_learner = LogisticRegression(random_state=42, max_itter=2000, C=1.0, class_weight='balanced')
         
         # Dynamic weights based on data characteristics
         self.adaptive_weights = {}
