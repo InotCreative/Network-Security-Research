@@ -741,7 +741,7 @@ class AdaptiveEnsembleClassifier:
                 random_state=42
             )
         else:
-            self.meta_learner = LogisticRegression(random_state=42, max_itter=2000, C=1.0, class_weight='balanced')
+            self.meta_learner = LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced')
         
         # Dynamic weights based on data characteristics
         self.adaptive_weights = {}
