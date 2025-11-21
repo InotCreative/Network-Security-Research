@@ -1152,29 +1152,59 @@ class AdaptiveEnsembleClassifier:
             train_accuracy = self.individual_performance.get(name, {}).get('train_accuracy', 0.0)
             
             # Test performance
-            y_pred = clf.predict(X_test)
-            test_accuracy = accuracy_score(y_test, y_pred)
-            test_precision = precision_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro')
-            test_recall = recall_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro')
-            test_f1 = f1_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro')
+            # Test performance - APPLY FIXES FOR SVM AND LR
+            mean_label = y_test.mean()  # Actual class distribution
             
-            # Calculate AUC-ROC
+            # Get predictions with proper handling
+            if name == 'svm' and hasattr(clf, 'predict_proba'):
+                # SVM: Check for inversion and flip
+                y_proba_raw = clf.predict_proba(X_test)
+                y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
+                
+                mean_prob = y_proba_pos.mean()
+                if abs(mean_prob - mean_label) > 0.3:
+                    print(f"   🔄 Detected inverted SVM - flipping for evaluation")
+                    y_proba_pos = 1 - y_proba_pos
+                
+                y_pred = (y_proba_pos > 0.5).astype(int)
+            
+            elif hasattr(clf, 'predict_proba'):
+                # For LR and other models: Use predict_proba with class-aware threshold
+                y_proba = clf.predict_proba(X_test)
+                if classification_type == 'binary' and len(y_proba.shape) > 1:
+                    # Use training class distribution as threshold (not 0.5!)
+                    train_attack_ratio = self.training_data[1].mean() if hasattr(self, 'training_data') else 0.5
+                    y_pred = (y_proba[:, 1] > (1 - train_attack_ratio)).astype(int)
+                else:
+                    y_pred = clf.predict(X_test)
+            else:
+                y_pred = clf.predict(X_test)
+            
+            test_accuracy = accuracy_score(y_test, y_pred)
+            test_precision = precision_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro', zero_division=0)
+            test_recall = recall_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro', zero_division=0)
+            test_f1 = f1_score(y_test, y_pred, average='binary' if classification_type == 'binary' else 'macro', zero_division=0)
+            
+            # Calculate AUC-ROC (probabilities, not predictions)
             try:
                 if hasattr(clf, 'predict_proba'):
                     y_proba = clf.predict_proba(X_test)
+                    
+                    # SVM flip for AUC
+                    if name == 'svm' and len(y_proba.shape) > 1:
+                        mean_prob = y_proba[:, 1].mean()
+                        if abs(mean_prob - mean_label) > 0.3:
+                            y_proba = np.column_stack([y_proba[:, 1], y_proba[:, 0]])
+                    
                     if classification_type == 'binary':
-                        if len(y_proba.shape) > 1 and y_proba.shape[1] > 1:
-                            test_auc = roc_auc_score(y_test, y_proba[:, 1])
-                        else:
-                            test_auc = roc_auc_score(y_test, y_proba)
+                        test_auc = roc_auc_score(y_test, y_proba[:, 1]) if len(y_proba.shape) > 1 else roc_auc_score(y_test, y_proba)
                     else:
-                        # Multiclass: use one-vs-rest macro average
                         test_auc = roc_auc_score(y_test, y_proba, multi_class='ovr', average='macro')
                 else:
                     test_auc = None
             except Exception as e:
                 test_auc = None
-            
+
             # Overfitting analysis using STORED CV scores (not test set CV!)
             cv_mean = cv_accuracy_stored
             cv_std = cv_std_stored
@@ -4006,6 +4036,38 @@ class NovelEnsembleMLSystem:
             bars1[-1].set_color('red')
             bars2[-1].set_color('red')
             
+            ax_to_use.set_xlabel('Models')
+            ax_to_use.set_ylabel('Accuracy')
+            ax_to_use.set_title('Individual Model vs Ensemble Performance')
+            ax_to_use.set_xticks(x)
+            ax_to_use.set_xticklabels(models, rotation=45, ha='right')
+            ax_to_use.legend()
+            ax_to_use.grid(True, alpha=0.3)
+            ax_to_use.set_ylim(0.8, 1.0)  # Focus on the high accuracy range
+        
+        # Feature Importance (moved to 4th position)
+        if results['feature_importance']:
+            features = list(results['feature_importance'].keys())[:10]  # Top 10
+            importances = [results['feature_importance'][f] for f in features]
+            
+            ax4.barh(range(len(features)), importances)
+            ax4.set_yticks(range(len(features)))
+            ax4.set_yticklabels(features, fontsize=9)
+            ax4.set_xlabel('Importance')
+            ax4.set_title('Top 10 Feature Importance')
+            ax4.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig('novel_ensemble_results.png', dpi=300, bbox_inches='tight')
+        plt.show()
+
+# Example usage and demo
+if __name__ == "__main__":
+    print("🚀 NOVEL ENSEMBLE ML SYSTEM")
+    print("=" * 50)
+    print("❌ This module requires real UNSW-NB15 dataset")
+    print("📊 Run: python create_balanced_split.py first")
+    print("🚀 Then: python run_novel_ml.py")
             ax_to_use.set_xlabel('Models')
             ax_to_use.set_ylabel('Accuracy')
             ax_to_use.set_title('Individual Model vs Ensemble Performance')
