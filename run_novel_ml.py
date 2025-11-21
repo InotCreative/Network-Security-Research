@@ -124,9 +124,9 @@ def compare_with_baseline(csv_path):
     # Baseline models
     from sklearn.linear_model import SGDClassifier
     baselines = {
-        'Decision Tree': DecisionTreeClassifier(random_state=42),
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'SGD': SGDClassifier(loss='log_loss', random_state=42, max_iter=1000, alpha=0.01, penalty='l2')
+        'Decision Tree': DecisionTreeClassifier(random_state=42, max_depth=10, class_weight='balanced'),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
+        'SGD': SGDClassifier(loss='log_loss', random_state=42, max_iter=1000, alpha=0.01, penalty='l2', class_weight='balanced')
     }
     
     baseline_results = {}
@@ -184,7 +184,7 @@ def analyze_novel_components(csv_path):
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
-        rf = RandomForestClassifier(n_estimators=100, random_state=42)
+        rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
         rf.fit(X_train_scaled, y_train)
         acc = accuracy_score(y_test, rf.predict(X_test_scaled))
         print(f"   {description}: {acc:.4f}")
@@ -290,7 +290,7 @@ def analyze_novel_components(csv_path):
     X_selected = selector.fit_transform(X_train_scaled, y_train)
     X_test_selected = selector.transform(X_test_scaled)
     
-    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
     rf.fit(X_selected, y_train)
     acc_selected = accuracy_score(y_test, rf.predict(X_test_selected))
     print(f"   + Feature selection ({X_selected.shape[1]} features): {acc_selected:.4f}")

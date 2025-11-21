@@ -3,7 +3,8 @@ import numpy as np
 import os
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import SGDClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
@@ -715,8 +716,6 @@ class AdaptiveEnsembleClassifier:
         # Add SVM with optimized hyperparameters for network intrusion detection
         # Using RBF kernel with optimized C and gamma for better performance
         # Limited max_iter to prevent excessive training time on large datasets
-        from sklearn.svm import LinearSVC
-        from sklearn.calibration import CalibratedClassifierCV
         
         self.base_classifiers['svm'] = CalibratedClassifierCV(
             LinearSVC(
@@ -726,7 +725,7 @@ class AdaptiveEnsembleClassifier:
                 max_iter=2000,              # Reduced (linear converges faster)
                 dual=False                  # Better for n_samples > n_features
             ),
-            cv=3,                           # 3-fold calibration for probabilities
+            cv=5,                           # 5-fold calibration for probabilities
             method='sigmoid'                # Platt scaling for probability calibration
         )
         
@@ -2474,13 +2473,13 @@ class AdaptiveEnsembleClassifier:
         
         # Standard baselines for network intrusion detection
         standard_baselines = {
-            'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
-            'SVM': SVC(probability=True, random_state=42, kernel='rbf', C=10.0, gamma='scale', max_iter=5000),
-            'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
+            'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1, class_weight='balanced'),
+            'SVM':CalibratedClassifierCV(LinearSVC(C=1.0, random_state=42, max_iter=2000, dual=False), cv=5, method='sigmoid'),
+            'Logistic Regression': LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced'),
             'Naive Bayes': GaussianNB(),
-            'Decision Tree': DecisionTreeClassifier(random_state=42, max_depth=10),
+            'Decision Tree': DecisionTreeClassifier(random_state=42, max_depth=10, class_weight='balanced'),
             'K-Nearest Neighbors': KNeighborsClassifier(n_neighbors=5),
-            'SGD Classifier': SGDClassifier(loss='log_loss', random_state=42, max_iter=1000)
+            'SGD Classifier': SGDClassifier(loss='log_loss', random_state=42, max_iter=1000, class_weight='balanced')
         }
         
         # Add XGBoost if available
@@ -3108,7 +3107,7 @@ class NovelEnsembleMLSystem:
                 cached_feature_count = len(self.selected_feature_indices)
                 
                 print(f"✅ Complete ensemble loaded from cache!")
-                print(f"   � nTraining samples: {metadata.get('training_samples', 'Unknown')}")
+                print(f"     nTraining samples: {metadata.get('training_samples', 'Unknown')}")
                 print(f"   🎯 Using {cached_feature_count} features (from cached model)")
                 print(f"   💡 Data-driven: Model adapts to cached feature selection")
                 

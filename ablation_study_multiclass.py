@@ -13,6 +13,8 @@ Methodology:
 
 import pandas as pd
 import numpy as np
+from sklearn.svm import LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, classification_report
@@ -534,9 +536,9 @@ class MulticlassAblationStudy:
             'SGD': SGDClassifier(loss='log_loss', random_state=42, max_iter=1000, class_weight='balanced'),
             'KNN': KNeighborsClassifier(n_neighbors=7),
             'NB': GaussianNB(),
-            'LR': LogisticRegression(random_state=42, max_iter=1000, class_weight='balanced'),
+            'LR': LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced'),
             'DT': DecisionTreeClassifier(random_state=42, max_depth=10, class_weight='balanced'),
-            'SVM': SVC(probability=True, random_state=42, class_weight='balanced')
+            'SVM': CalibratedClassifierCV(LinearSVC(C=1.0, random_state=42, max_iter=2000, dual=False), cv=5, method='sigmoid')
         }
         
         # Add XGBoost if available
