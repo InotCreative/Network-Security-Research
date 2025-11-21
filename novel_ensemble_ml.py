@@ -1152,7 +1152,6 @@ class AdaptiveEnsembleClassifier:
             train_accuracy = self.individual_performance.get(name, {}).get('train_accuracy', 0.0)
             
             # Test performance
-            # Test performance - APPLY FIXES FOR SVM AND LR
             mean_label = y_test.mean()  # Actual class distribution
             
             # Get predictions with proper handling
@@ -1204,7 +1203,7 @@ class AdaptiveEnsembleClassifier:
                     test_auc = None
             except Exception as e:
                 test_auc = None
-
+            
             # Overfitting analysis using STORED CV scores (not test set CV!)
             cv_mean = cv_accuracy_stored
             cv_std = cv_std_stored
@@ -4036,38 +4035,6 @@ class NovelEnsembleMLSystem:
             bars1[-1].set_color('red')
             bars2[-1].set_color('red')
             
-            ax_to_use.set_xlabel('Models')
-            ax_to_use.set_ylabel('Accuracy')
-            ax_to_use.set_title('Individual Model vs Ensemble Performance')
-            ax_to_use.set_xticks(x)
-            ax_to_use.set_xticklabels(models, rotation=45, ha='right')
-            ax_to_use.legend()
-            ax_to_use.grid(True, alpha=0.3)
-            ax_to_use.set_ylim(0.8, 1.0)  # Focus on the high accuracy range
-        
-        # Feature Importance (moved to 4th position)
-        if results['feature_importance']:
-            features = list(results['feature_importance'].keys())[:10]  # Top 10
-            importances = [results['feature_importance'][f] for f in features]
-            
-            ax4.barh(range(len(features)), importances)
-            ax4.set_yticks(range(len(features)))
-            ax4.set_yticklabels(features, fontsize=9)
-            ax4.set_xlabel('Importance')
-            ax4.set_title('Top 10 Feature Importance')
-            ax4.grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        plt.savefig('novel_ensemble_results.png', dpi=300, bbox_inches='tight')
-        plt.show()
-
-# Example usage and demo
-if __name__ == "__main__":
-    print("🚀 NOVEL ENSEMBLE ML SYSTEM")
-    print("=" * 50)
-    print("❌ This module requires real UNSW-NB15 dataset")
-    print("📊 Run: python create_balanced_split.py first")
-    print("🚀 Then: python run_novel_ml.py")
             ax_to_use.set_xlabel('Models')
             ax_to_use.set_ylabel('Accuracy')
             ax_to_use.set_title('Individual Model vs Ensemble Performance')
