@@ -1156,27 +1156,21 @@ class AdaptiveEnsembleClassifier:
             
             # Get predictions with proper handling
             if name == 'svm' and hasattr(clf, 'predict_proba'):
-                # SVM: Check for inversion and flip
+                # SVM: Check for inversion and flip DECISION only
                 y_proba_raw = clf.predict_proba(X_test)
                 y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
                 
                 mean_prob = y_proba_pos.mean()
-                if abs(mean_prob - mean_label) > 0.3:
+                # If inverted: mean_prob will be ~0.36 when actual is ~0.64
+                if mean_prob < 0.5 and mean_label > 0.5:
+                    # SVM is predicting LOW probabilities when should predict HIGH
                     print(f"   🔄 Detected inverted SVM - flipping for evaluation")
-                    y_proba_pos = 1 - y_proba_pos
-                
-                y_pred = (y_proba_pos > 0.5).astype(int)
-            
-            elif hasattr(clf, 'predict_proba'):
-                # For LR and other models: Use predict_proba with class-aware threshold
-                y_proba = clf.predict_proba(X_test)
-                if classification_type == 'binary' and len(y_proba.shape) > 1:
-                    # Use training class distribution as threshold (not 0.5!)
-                    train_attack_ratio = self.training_data[1].mean() if hasattr(self, 'training_data') else 0.5
-                    y_pred = (y_proba[:, 1] > (1 - train_attack_ratio)).astype(int)
+                    y_pred = (y_proba_pos < 0.5).astype(int)  # INVERT the threshold!
                 else:
-                    y_pred = clf.predict(X_test)
+                    y_pred = (y_proba_pos > 0.5).astype(int)
             else:
+                # For all other models: just use clf.predict()
+                # class_weight='balanced' already handles the decision threshold
                 y_pred = clf.predict(X_test)
             
             test_accuracy = accuracy_score(y_test, y_pred)
@@ -1189,12 +1183,7 @@ class AdaptiveEnsembleClassifier:
                 if hasattr(clf, 'predict_proba'):
                     y_proba = clf.predict_proba(X_test)
                     
-                    # SVM flip for AUC
-                    if name == 'svm' and len(y_proba.shape) > 1:
-                        mean_prob = y_proba[:, 1].mean()
-                        if abs(mean_prob - mean_label) > 0.3:
-                            y_proba = np.column_stack([y_proba[:, 1], y_proba[:, 0]])
-                    
+                    # NO FLIPPING FOR AUC - always use raw probabilities
                     if classification_type == 'binary':
                         test_auc = roc_auc_score(y_test, y_proba[:, 1]) if len(y_proba.shape) > 1 else roc_auc_score(y_test, y_proba)
                     else:
