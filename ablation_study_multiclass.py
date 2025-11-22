@@ -559,7 +559,14 @@ class MulticlassAblationStudy:
         accuracies = {}
         for name, clf in classifiers.items():
             clf.fit(X_train_scaled, y_train)
-            y_pred = clf.predict(X_test_scaled)
+            
+            # Use predict_proba + argmax for consistent predictions
+            if hasattr(clf, 'predict_proba'):
+                y_proba = clf.predict_proba(X_test_scaled)
+                y_pred = np.argmax(y_proba, axis=1)
+            else:
+                y_pred = clf.predict(X_test_scaled)
+            
             acc = accuracy_score(y_test, y_pred)
             accuracies[name] = acc
             print(f"      {name}: {acc:.4f}")

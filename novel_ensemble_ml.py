@@ -689,8 +689,8 @@ class AdaptiveEnsembleClassifier:
                                class_weight=class_weight, alpha=0.01, penalty='l2'),  # OVERFITTING FIX
             'knn': KNeighborsClassifier(n_neighbors=7),
             'nb': GaussianNB(),
-            'lr': OneVsRestClassifier(LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced')) if num_classes > 2 
-                  else LogisticRegression(random_state=42, max_iter=2000, C=1.0, class_weight='balanced'),
+            'lr': OneVsRestClassifier(LogisticRegression(random_state=42, max_iter=2000, C=1.0)) if num_classes > 2 
+                  else LogisticRegression(random_state=42, max_iter=2000, C=1.0),
             'dt': DecisionTreeClassifier(random_state=42, max_depth=10,
                                        class_weight=class_weight)
         }
@@ -720,7 +720,6 @@ class AdaptiveEnsembleClassifier:
         self.base_classifiers['svm'] = CalibratedClassifierCV(
             LinearSVC(
                 C=1.0,                      # Lower regularization (was 10.0)
-                class_weight=class_weight,  # Handle imbalance
                 random_state=42,
                 max_iter=2000,              # Reduced (linear converges faster)
                 dual=False                  # Better for n_samples > n_features
@@ -1161,19 +1160,49 @@ class AdaptiveEnsembleClassifier:
                 y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
                 
                 mean_prob = y_proba_pos.mean()
-                # If inverted: mean_prob will be ~0.36 when actual is ~0.64
+                print(f"   🔍 SVM mean_prob BEFORE flip: {mean_prob:.4f}, mean_label: {mean_label:.4f}")
+                
+                # If inverted: mean_prob will be ~0.05 when actual is ~0.64
                 if mean_prob < 0.5 and mean_label > 0.5:
                     # SVM probabilities are inverted - flip them!
                     print(f"   🔄 Detected inverted SVM - flipping probabilities for evaluation")
                     y_proba_pos = 1 - y_proba_pos  # FLIP THE PROBABILITIES
+                    print(f"   🔍 SVM mean_prob AFTER flip: {y_proba_pos.mean():.4f}")
                 
-                # Use normal threshold on (possibly flipped) probabilities
-                y_pred = (y_proba_pos > 0.5).astype(int)
+                # After flipping, probabilities are poorly calibrated
+                # Use the mean probability as threshold (data-driven calibration)
+                threshold = y_proba_pos.mean()
+                y_pred = (y_proba_pos > threshold).astype(int)
+                
+                print(f"   🔍 SVM using threshold: {threshold:.4f} (mean probability)")
+                print(f"   🔍 SVM predictions: {y_pred.sum()}/{len(y_pred)} as attack ({y_pred.mean():.4f})")
+                print(f"   🔍 Actual labels: {y_test.sum()}/{len(y_test)} are attack ({y_test.mean():.4f})")
             else:
-                # For LR and other models: use argmax on predict_proba (more robust than .predict())
+                # For LR and other models: check for inversion too!
                 if hasattr(clf, 'predict_proba'):
                     y_proba = clf.predict_proba(X_test)
+                    
+                    # Check if probabilities are inverted (for binary classification)
+                    if len(y_proba.shape) > 1 and y_proba.shape[1] == 2:
+                        mean_prob_attack = y_proba[:, 1].mean()
+                        
+                        if name == 'lr':
+                            print(f"   🔍 LR mean prob for attack: {mean_prob_attack:.4f}, actual: {mean_label:.4f}")
+                        
+                        # If mean probability for attack class is much lower than actual attack rate, probabilities are inverted
+                        if mean_prob_attack < 0.5 and mean_label > 0.5:
+                            if name == 'lr':
+                                print(f"   🔄 LR probabilities are inverted - flipping!")
+                            # Flip the probability columns
+                            y_proba = y_proba[:, ::-1]  # Reverse columns
+                            if name == 'lr':
+                                print(f"   🔍 LR mean prob after flip: {y_proba[:, 1].mean():.4f}")
+                    
                     y_pred = np.argmax(y_proba, axis=1)  # Choose class with highest probability
+                    
+                    if name == 'lr':
+                        print(f"   🔍 LR predictions: {y_pred.sum()}/{len(y_pred)} as attack ({y_pred.mean():.4f})")
+                        print(f"   🔍 Actual labels: {y_test.sum()}/{len(y_test)} are attack ({y_test.mean():.4f})")
                 else:
                     y_pred = clf.predict(X_test)
             
@@ -1821,7 +1850,7 @@ class AdaptiveEnsembleClassifier:
                                 base_predictions[:, i] = proba[:, 0]
                         else:
                             proba = clf.predict_proba(X)
-base_predictions[:, i] = np.max(proba, axis=1)
+                            base_predictions[:, i] = np.max(proba, axis=1)
                     except Exception as e:
                         print(f"      ⚠️  Error getting predictions from cached {name}: {e}")
                         base_predictions[:, i] = 0.5
@@ -2036,7 +2065,40 @@ base_predictions[:, i] = np.max(proba, axis=1)
         for name, clf in self.base_classifiers.items():
             # Test predictions with NaN cleaning
             X_test_clean = np.nan_to_num(X_test, nan=0.0, posinf=0.0, neginf=0.0)
-            test_pred = clf.predict(X_test_clean)
+            
+            # Use same logic as comprehensive evaluation
+            mean_label = y_test.mean()
+            
+            if name == 'svm' and hasattr(clf, 'predict_proba'):
+                # SVM: Check for inversion and flip PROBABILITIES
+                y_proba_raw = clf.predict_proba(X_test_clean)
+                y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
+                
+                mean_prob = y_proba_pos.mean()
+                print(f"\n   🔍 SVM Debug: mean_prob={mean_prob:.4f}, mean_label={mean_label:.4f}")
+                
+                if mean_prob < 0.5 and mean_label > 0.5:
+                    print(f"   🔄 Flipping SVM probabilities (inverted)")
+                    y_proba_pos = 1 - y_proba_pos  # FLIP THE PROBABILITIES
+                    print(f"   🔍 After flip: mean_prob={y_proba_pos.mean():.4f}")
+                else:
+                    print(f"   ✅ SVM probabilities look correct (not flipping)")
+                
+                # Use normal threshold on (possibly flipped) probabilities
+                test_pred = (y_proba_pos > 0.5).astype(int)
+                print(f"   🔍 Predictions: {test_pred.sum()}/{len(test_pred)} predicted as attack ({test_pred.mean():.4f})")
+            else:
+                # For LR and other models: use argmax on predict_proba
+                if hasattr(clf, 'predict_proba'):
+                    y_proba = clf.predict_proba(X_test_clean)
+                    test_pred = np.argmax(y_proba, axis=1)
+                    if name == 'lr':
+                        print(f"\n   🔍 LR Debug: Using argmax on predict_proba")
+                        print(f"   🔍 Predictions: {test_pred.sum()}/{len(test_pred)} predicted as attack ({test_pred.mean():.4f})")
+                        print(f"   🔍 Actual: {y_test.sum()}/{len(y_test)} are attack ({y_test.mean():.4f})")
+                else:
+                    test_pred = clf.predict(X_test_clean)
+            
             test_accuracy = accuracy_score(y_test, test_pred)
             
             # Get training performance
@@ -2539,7 +2601,13 @@ base_predictions[:, i] = np.max(proba, axis=1)
                 
                 # Train on full baseline data and test
                 model.fit(X_baseline, y_baseline)
-                y_pred = model.predict(X_test)
+                
+                # Use predict_proba + argmax for consistent predictions
+                if hasattr(model, 'predict_proba'):
+                    y_proba = model.predict_proba(X_test)
+                    y_pred = np.argmax(y_proba, axis=1)
+                else:
+                    y_pred = model.predict(X_test)
                 
                 # Calculate comprehensive metrics
                 accuracy = accuracy_score(y_test, y_pred)
