@@ -878,10 +878,16 @@ def run_comprehensive_robustness_test():
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
         
+        # Apply feature selection if the system has it
+        if hasattr(system, 'selected_feature_indices') and system.selected_feature_indices is not None:
+            print(f"🎯 Applying system's feature selection: {len(system.selected_feature_indices)} features")
+            X_train = X_train[:, system.selected_feature_indices]
+            X_test = X_test[:, system.selected_feature_indices]
+        
         # Debug information
         print(f"📊 Training samples: {X_train.shape[0]:,}")
         print(f"🎯 Selected features: {X_train.shape[1]}")
-        print(f"🔧 Created features: {X_train.shape[1] - len([col for col in test_df.columns if col not in ['label', 'attack_cat', 'stime', 'srcip', 'dstip', 'id']])}")
+        print(f"🔧 Created features: 0")
         
         # Show unique classes
         unique_classes = np.unique(y_test)
@@ -940,13 +946,13 @@ def run_comprehensive_robustness_test():
         statistical_validator = AirtightStatisticalValidator()
         
         # Test statistical significance between models
-        if hasattr(self, 'results') and 'individual_performance' in self.results and self.results['individual_performance']:
+        if hasattr(system, 'results') and 'individual_performance' in system.results and system.results['individual_performance']:
             print(f"\n📊 Testing statistical significance between models...")
-            model_names = list(self.results['individual_performance'].keys())
+            model_names = list(system.results['individual_performance'].keys())
             
             if len(model_names) >= 2:
                 # Compare best individual vs ensemble
-                best_individual = max(self.results['individual_performance'].items(), 
+                best_individual = max(system.results['individual_performance'].items(), 
                                     key=lambda x: x[1]['test_accuracy'])
                 best_name, best_perf = best_individual
                 
@@ -954,23 +960,23 @@ def run_comprehensive_robustness_test():
                 # TODO: Store actual CV scores during training for proper statistical testing
                 print("   ⚠️  Statistical significance test requires actual CV scores")
                 print("   💡 Implement CV score storage during training")
-                return
+                # Don't return, continue with other tests
                 
-                sig_result = statistical_validator.test_statistical_significance(
-                    ensemble_scores, individual_scores
-                )
-                statistical_validator.results['significance_test'] = sig_result
+                # sig_result = statistical_validator.test_statistical_significance(
+                #     ensemble_scores, individual_scores
+                # )
+                # statistical_validator.results['significance_test'] = sig_result
         
         # Test probability calibration if available
-        if hasattr(self, 'results') and 'probabilities' in self.results and self.results['probabilities'] is not None:
+        if hasattr(system, 'results') and 'probabilities' in system.results and system.results['probabilities'] is not None:
             print(f"\n🎯 Testing probability calibration...")
-            if len(self.results['probabilities'].shape) == 2 and self.results['probabilities'].shape[1] == 2:
-                probs = self.results['probabilities'][:, 1]  # Use positive class probabilities
+            if len(system.results['probabilities'].shape) == 2 and system.results['probabilities'].shape[1] == 2:
+                probs = system.results['probabilities'][:, 1]  # Use positive class probabilities
             else:
-                probs = self.results['probabilities']
+                probs = system.results['probabilities']
             
             cal_result = statistical_validator.assess_probability_calibration(
-                self.results['true_labels'], probs
+                system.results['true_labels'], probs
             )
             statistical_validator.results['calibration'] = cal_result
         
