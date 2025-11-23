@@ -557,18 +557,11 @@ class CrossDatasetValidator:
                     # Use the extracted model with properly prepared features
                     y_proba = model.predict_proba(X_test_selected)
                     
-                    # FIX: Use adaptive threshold instead of fixed 0.5
-                    print(f"\n🔧 APPLYING ADAPTIVE THRESHOLD FIX...")
-                    y_pred, optimal_threshold, adaptive_results = self.evaluate_with_adaptive_threshold(
-                        y_true, y_proba
-                    )
-                    
-                    # Extract metrics from adaptive evaluation
-                    accuracy = adaptive_results['accuracy']
-                    precision = adaptive_results['precision']
-                    recall = adaptive_results['recall']
-                    f1 = adaptive_results['f1']
-                    skip_metrics = True
+                    # Use standard threshold (0.5) - no test-set optimization
+                    # Inversion correction below will handle any systematic prediction errors
+                    y_proba_attack = y_proba[:, 1] if len(y_proba.shape) > 1 else y_proba
+                    y_pred = (y_proba_attack >= 0.5).astype(int)
+                    skip_metrics = False  # Calculate metrics normally
                     
                 else:
                     # Direct model object
