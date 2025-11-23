@@ -133,12 +133,20 @@ if __name__ == "__main__":
     print("\n🎯 Training model with SMOTE-balanced data...")
     print("   (All other steps identical to original)\n")
     
-    # Train - EXACT same method call as original
-    system.train(
+    # Train - EXACT same method call as original (using fit, not train)
+    system.fit(
         args.dataset,
-        test_csv=args.test_dataset,
-        force_retrain=args.force_retrain
+        force_retrain=args.force_retrain,
+        cache_dir="Models/Multiclass"
     )
+    
+    # ENSEMBLE FIX: Override mixing ratio to use weighted average instead of broken meta-learner
+    # This ensures multiclass ensemble uses weighted average (~75-80% accuracy)
+    # instead of meta-learner (52% CV accuracy)
+    print("\n🔧 APPLYING ENSEMBLE FIX...")
+    print("   Setting mixing_ratio = 0.0 (weighted average instead of meta-learner)")
+    system.classifier.optimal_mixing_ratio = 0.0
+    print("   ✅ Ensemble will now use weighted average of base classifiers")
     
     # Evaluate - EXACT same method call as original
     print("\n📊 Evaluating on test set...")

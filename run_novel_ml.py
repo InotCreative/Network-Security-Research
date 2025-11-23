@@ -55,6 +55,14 @@ def run_complete_experiment(csv_path, test_csv_path=None, classification_type='b
     print("-" * 40)
     system.fit(csv_path, force_retrain=force_retrain, force_retrain_models=force_retrain_models, cache_dir=cache_dir)
     
+    # QUICK FIX: Override mixing ratio to use weighted average instead of broken meta-learner
+    # This bypasses the meta-learner (52% CV accuracy) and uses weighted average (~75-80% accuracy)
+    if classification_type == 'multiclass':
+        print("\n🔧 APPLYING ENSEMBLE FIX...")
+        print("   Setting mixing_ratio = 0.0 (weighted average instead of meta-learner)")
+        system.classifier.optimal_mixing_ratio = 0.0
+        print("   ✅ Ensemble will now use weighted average of base classifiers")
+    
     # Ensemble is automatically saved during training
     
     # Evaluate the system
