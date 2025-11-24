@@ -1156,34 +1156,12 @@ class AdaptiveEnsembleClassifier:
             mean_label = y_test.mean()  # Actual class distribution
             
             # Get predictions with proper handling
-            # Check for probability inversion using classifier's classes_ attribute
+            # Use standard predict() for consistency with individual performance table
             if hasattr(clf, 'predict_proba'):
                 y_proba = clf.predict_proba(X_test)
-                
-                # For BINARY classification only, check if probabilities are inverted
-                if classification_type == 'binary' and len(y_proba.shape) > 1 and y_proba.shape[1] == 2:
-                    mean_prob_class1 = y_proba[:, 1].mean()
-                    actual_class1_rate = (y_test == 1).mean()
-                    
-                    # If mean probability for class 1 is much lower than actual rate, flip
-                    if abs(mean_prob_class1 - actual_class1_rate) > 0.3:
-                        if mean_prob_class1 < actual_class1_rate:
-                            print(f"   🔄 {name.upper()}: Probabilities inverted (pred {mean_prob_class1:.3f} vs actual {actual_class1_rate:.3f}), flipping!")
-                            y_proba = y_proba[:, ::-1]
-                            mean_prob_class1 = y_proba[:, 1].mean()  # Recalculate after flip
-                    
-                    # After flipping, probabilities might be poorly calibrated
-                    # Use actual class rate as threshold instead of 0.5 or mean probability
-                    if name in ['lr', 'svm'] and abs(mean_prob_class1 - 0.5) > 0.2:
-                        # Probabilities are poorly calibrated, use actual class rate as threshold
-                        threshold = actual_class1_rate
-                        y_pred = (y_proba[:, 1] >= threshold).astype(int)
-                        print(f"      Using data-driven threshold: {threshold:.4f} (actual class rate)")
-                    else:
-                        y_pred = np.argmax(y_proba, axis=1)
-                else:
-                    # Multiclass or models without probabilities: just use argmax
-                    y_pred = np.argmax(y_proba, axis=1)
+                # Use standard argmax (no inversion correction, no threshold adjustment)
+                # This ensures consistency between individual performance and comprehensive evaluation
+                y_pred = np.argmax(y_proba, axis=1)
             else:
                 y_pred = clf.predict(X_test)
             
@@ -2055,36 +2033,9 @@ class AdaptiveEnsembleClassifier:
             # Use same logic as comprehensive evaluation
             mean_label = y_test.mean()
             
-            if name == 'svm' and hasattr(clf, 'predict_proba') and not is_multiclass:
-                # SVM: Check for inversion and flip PROBABILITIES (BINARY ONLY)
-                y_proba_raw = clf.predict_proba(X_test_clean)
-                y_proba_pos = y_proba_raw[:, 1] if len(y_proba_raw.shape) > 1 else y_proba_raw
-                
-                mean_prob = y_proba_pos.mean()
-                print(f"\n   🔍 SVM Debug: mean_prob={mean_prob:.4f}, mean_label={mean_label:.4f}")
-                
-                if mean_prob < 0.5 and mean_label > 0.5:
-                    print(f"   🔄 Flipping SVM probabilities (inverted)")
-                    y_proba_pos = 1 - y_proba_pos  # FLIP THE PROBABILITIES
-                    print(f"   🔍 After flip: mean_prob={y_proba_pos.mean():.4f}")
-                else:
-                    print(f"   ✅ SVM probabilities look correct (not flipping)")
-                
-                # Use normal threshold on (possibly flipped) probabilities
-                test_pred = (y_proba_pos > 0.5).astype(int)
-                print(f"   🔍 Predictions: {test_pred.sum()}/{len(test_pred)} predicted as attack ({test_pred.mean():.4f})")
-            else:
-                # For LR and other models: use argmax on predict_proba
-                # For multiclass SVM: also use argmax
-                if hasattr(clf, 'predict_proba'):
-                    y_proba = clf.predict_proba(X_test_clean)
-                    test_pred = np.argmax(y_proba, axis=1)
-                    if name == 'lr' and not is_multiclass:
-                        print(f"\n   🔍 LR Debug: Using argmax on predict_proba")
-                        print(f"   🔍 Predictions: {test_pred.sum()}/{len(test_pred)} predicted as attack ({test_pred.mean():.4f})")
-                        print(f"   🔍 Actual: {y_test.sum()}/{len(y_test)} are attack ({y_test.mean():.4f})")
-                else:
-                    test_pred = clf.predict(X_test_clean)
+            # Use standard predict() for all models - no special handling
+            # This ensures consistency between individual performance and comprehensive evaluation
+            test_pred = clf.predict(X_test_clean)
             
             test_accuracy = accuracy_score(y_test, test_pred)
             
