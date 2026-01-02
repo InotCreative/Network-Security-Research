@@ -852,8 +852,9 @@ class AdaptiveEnsembleClassifier:
             print(f"   📊 Samples: {attack_samples:,} {attack} vs {normal_samples:,} Normal")
             
             # CRITICAL FIX: Proper train/test split BEFORE any processing
+            # Main split: 70/30 (consistent with train_improved_specialists.py)
             X_train_raw, X_test_raw, y_train, y_test = train_test_split(
-                X_attack_raw, y_attack, test_size=0.2, random_state=42, stratify=y_attack
+                X_attack_raw, y_attack, test_size=0.3, random_state=42, stratify=y_attack
             )
             
             # CRITICAL FIX: Feature engineering only on training data
@@ -948,8 +949,9 @@ class AdaptiveEnsembleClassifier:
                 test_auc = None
             
             # Additional validation: Cross-validation on training data only
+            # Using 5-fold CV consistent with train_improved_specialists.py and ablation_study.py
             from sklearn.model_selection import StratifiedKFold
-            cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)  # Reduced folds
+            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             cv_f1 = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='f1')
             cv_balanced_acc = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='balanced_accuracy')
             cv_auc = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='roc_auc')

@@ -121,8 +121,8 @@ def compare_with_baseline(csv_path):
     X = df[feature_cols].values
     y = df[target_col].values
     
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Split data - Main split: 70/30 (consistent across codebase)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     
     # Scale features
     scaler = StandardScaler()
@@ -187,7 +187,8 @@ def analyze_novel_components(csv_path):
     
     # Helper function to evaluate a feature set
     def evaluate_features(X, description):
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Main split: 70/30 (consistent across codebase)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
@@ -287,7 +288,8 @@ def analyze_novel_components(csv_path):
     print("\n7️⃣  + INTELLIGENT FEATURE SELECTION")
     from sklearn.feature_selection import SelectKBest, f_classif
     
-    X_train, X_test, y_train, y_test = train_test_split(X_all, y, test_size=0.2, random_state=42)
+    # Main split: 70/30 (consistent across codebase)
+    X_train, X_test, y_train, y_test = train_test_split(X_all, y, test_size=0.3, random_state=42)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)

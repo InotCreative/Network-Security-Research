@@ -58,10 +58,12 @@ class AirtightStatisticalValidator:
             statistic, p_value = wilcoxon(results_a, results_b, alternative='two-sided')
             test_name = "Wilcoxon signed-rank test"
         
-        # Calculate effect size (Cohen's d)
-        pooled_std = np.sqrt((np.var(results_a, ddof=1) + np.var(results_b, ddof=1)) / 2)
-        if pooled_std > 0:
-            cohens_d = (np.mean(results_a) - np.mean(results_b)) / pooled_std
+        # Calculate effect size (Cohen's d) using paired difference formula
+        # Consistent with ablation_study.py - more appropriate for paired CV comparisons
+        diff = results_a - results_b
+        diff_std = np.std(diff, ddof=1)
+        if diff_std > 0:
+            cohens_d = np.mean(diff) / diff_std
         else:
             cohens_d = 0
         
