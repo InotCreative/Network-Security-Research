@@ -18,12 +18,13 @@ from novel_ensemble_ml import NovelEnsembleMLSystem, DynamicFeatureEngineer
 class CrossDatasetValidator:
     """Cross-dataset validation for testing model generalizability"""
     
-    def __init__(self):
+    def __init__(self, use_undersampling=False):
         self.binary_system = None
         self.feature_mapping = {}
         self.unsw_features = []
         self.botiot_features = []
         self.training_feature_stats = None  # Store training data statistics
+        self.use_undersampling = use_undersampling  # Control undersampling behavior
         
     def load_binary_model(self):
         """Load the trained binary ensemble model"""
@@ -365,6 +366,12 @@ class CrossDatasetValidator:
                 print(f"   {class_name} ({class_label}): {count:,} samples ({percentage:.4f}%)")
             
             # Calculate imbalance ratio
+            # Store original data for full dataset evaluation
+            original_test_df = test_df.copy()
+            original_y_true = y_true.copy()
+            used_undersampling = False
+            sampling_strategy = None
+            
             if len(class_dist) == 2:
                 majority_count = max(counts)
                 minority_count = min(counts)
@@ -373,10 +380,11 @@ class CrossDatasetValidator:
                 print(f"\n   Imbalance Ratio: {imbalance_ratio:.1f}:1")
                 
                 # If extremely imbalanced (>100:1), create balanced or proportional subset
-                if imbalance_ratio > 100:
+                if self.use_undersampling and imbalance_ratio > 100:
                     print(f"\n🔄 CREATING TEST SUBSET FOR MEANINGFUL EVALUATION")
                     print("-" * 50)
                     print(f"   ⚠️  Extreme imbalance detected ({imbalance_ratio:.0f}:1)")
+                    print(f"   ℹ️  Undersampling ENABLED (use_undersampling=True)")
                     
                     # Find minority and majority classes
                     minority_class = unique[np.argmin(counts)]
@@ -403,6 +411,7 @@ class CrossDatasetValidator:
                         print(f"      Normal: {minority_size:,} samples (50%)")
                         print(f"      Attack: {minority_size:,} samples (50%)")
                         print(f"      Total: {len(balanced_indices):,} samples")
+                        sampling_strategy = "50:50 balanced"
                         
                     elif minority_size >= 50:
                         # Moderate samples: Create 1:2 ratio (more realistic)
@@ -421,6 +430,7 @@ class CrossDatasetValidator:
                         print(f"      Normal: {minority_size:,} samples (33%)")
                         print(f"      Attack: {majority_sample_size:,} samples (67%)")
                         print(f"      Total: {len(balanced_indices):,} samples")
+                        sampling_strategy = "1:2 ratio"
                         
                     else:
                         # Very few samples: Use ALL minority + proportional majority
@@ -442,9 +452,20 @@ class CrossDatasetValidator:
                         print(f"      Normal: {minority_size:,} samples ({minority_pct:.1f}%)")
                         print(f"      Attack: {majority_sample_size:,} samples ({majority_pct:.1f}%)")
                         print(f"      Total: {len(balanced_indices):,} samples")
+                        sampling_strategy = "1:3 ratio"
                     
+                    used_undersampling = True
                     print(f"\n   💡 Adaptive sampling ensures meaningful evaluation")
                     print(f"   💡 Strategy adapts to available minority class samples")
+                    
+                elif imbalance_ratio > 100:
+                    # Undersampling disabled but extreme imbalance exists
+                    print(f"\n⚠️  USING FULL DATASET (extreme imbalance)")
+                    print("-" * 50)
+                    print(f"   ⚠️  Extreme imbalance detected ({imbalance_ratio:.0f}:1)")
+                    print(f"   ℹ️  Undersampling DISABLED (use_undersampling=False)")
+                    print(f"   ⚠️  Metrics may be dominated by majority class")
+                    print(f"   💡 Model may predict all samples as majority class")
             
             # Get the model's expected feature names
             if isinstance(self.binary_system, dict) and 'feature_names' in self.binary_system:
@@ -459,7 +480,10 @@ class CrossDatasetValidator:
                         missing_features.append(feat)
                 
                 if missing_features:
+                    missing_pct = len(missing_features) / len(expected_features) * 100
                     print(f"   ⚠️  Added {len(missing_features)} missing features with zeros")
+                    if missing_pct > 20:
+                        print(f"   🚨 CRITICAL: {missing_pct:.1f}% features missing!")
                 
                 # Select only the features the model was trained on
                 X_test = test_df[expected_features]
@@ -640,39 +664,9 @@ class CrossDatasetValidator:
             
             # Check for potentially inverted model predictions (AUC < 0.5 suggests this)
             if auc < 0.5:
-                print(f"\n⚠️  WARNING: AUC < 0.5 detected!")
-                print(f"   This suggests the model's predictions are inverted")
-                print(f"   The model may be predicting opposite of what it should")
-                print(f"   Attempting to correct by inverting predictions...")
-                
-                # Invert predictions (not labels!)
-                y_pred_inverted = 1 - y_pred
-                accuracy_inv = accuracy_score(y_true, y_pred_inverted)
-                precision_inv = precision_score(y_true, y_pred_inverted, zero_division=0)
-                recall_inv = recall_score(y_true, y_pred_inverted, zero_division=0)
-                f1_inv = f1_score(y_true, y_pred_inverted, zero_division=0)
-                auc_inv = 1 - auc  # Invert AUC
-                
-                # Check if inversion actually improves BOTH AUC and accuracy
-                if auc_inv > 0.5 and accuracy_inv > accuracy:
-                    print(f"\n   ✅ Inverted predictions give better results!")
-                    print(f"   Original AUC: {auc:.4f} → Corrected AUC: {auc_inv:.4f}")
-                    print(f"   Original Accuracy: {accuracy:.4f} → Corrected Accuracy: {accuracy_inv:.4f}")
-                    print(f"   💡 Using corrected predictions for final metrics")
-                    
-                    y_pred = y_pred_inverted
-                    accuracy = accuracy_inv
-                    precision = precision_inv
-                    recall = recall_inv
-                    f1 = f1_inv
-                    auc = auc_inv
-                elif auc_inv > 0.5:
-                    print(f"\n   ⚠️  AUC improved but accuracy decreased after inversion")
-                    print(f"   This suggests label encoding mismatch, not prediction error")
-                    print(f"   Keeping original predictions but using inverted AUC")
-                    auc = auc_inv
-                else:
-                    print(f"\n   ℹ️  Inversion didn't improve results - keeping original predictions")
+                print(f"\n⚠️  WARNING: AUC = {auc:.4f} (< 0.5)")
+                print(f"   Model's predictions may be inverted relative to BoT-IoT labels")
+                # DO NOT modify y_pred, accuracy, precision, recall, f1, or auc
             
             # Print results
             print(f"\n🎯 CROSS-DATASET PERFORMANCE RESULTS:")
@@ -735,8 +729,93 @@ class CrossDatasetValidator:
                 'confusion_matrix': cm,
                 'generalization_level': generalization,
                 'decision_threshold': 0.5,  # Always use standard threshold (no test-set optimization)
-                'probability_variance': attack_proba.std()  # Track model confidence
+                'probability_variance': attack_proba.std(),  # Track model confidence
+                'used_undersampling': used_undersampling,
+                'sampling_strategy': sampling_strategy,
             }
+            
+            # If undersampling was used, also compute full dataset metrics for transparency
+            if used_undersampling:
+                print(f"\n📊 FULL DATASET METRICS (for transparency):")
+                print("-" * 50)
+                print(f"   ⚠️  These metrics are on the FULL imbalanced dataset")
+                print(f"   ⚠️  Model may predict all samples as majority class")
+                
+                # Prepare full dataset features
+                if isinstance(self.binary_system, dict) and 'feature_names' in self.binary_system:
+                    expected_features = self.binary_system['feature_names']
+                    for feat in expected_features:
+                        if feat not in original_test_df.columns:
+                            original_test_df[feat] = 0
+                    X_full = original_test_df[expected_features]
+                else:
+                    exclude_cols = [target_col, 'attack_cat', 'stime', 'srcip', 'dstip', 'id']
+                    feature_cols = [col for col in original_test_df.columns if col not in exclude_cols]
+                    X_full = original_test_df[feature_cols]
+                
+                # Apply scaling and feature selection
+                if isinstance(self.binary_system, dict) and 'scaler' in self.binary_system:
+                    X_full_scaled = self.binary_system['scaler'].transform(X_full.values)
+                else:
+                    X_full_scaled = X_full.values
+                
+                if isinstance(self.binary_system, dict) and 'selected_feature_indices' in self.binary_system:
+                    selected_indices = self.binary_system['selected_feature_indices']
+                    if selected_indices is not None and len(selected_indices) > 0:
+                        X_full_selected = X_full_scaled[:, selected_indices]
+                    else:
+                        X_full_selected = X_full_scaled
+                else:
+                    X_full_selected = X_full_scaled
+                
+                # Get predictions on full dataset
+                if isinstance(self.binary_system, dict):
+                    model = self.binary_system.get('classifier') or self.binary_system.get('model')
+                    if model:
+                        y_proba_full = model.predict_proba(X_full_selected)
+                        y_proba_full_attack = y_proba_full[:, 1] if len(y_proba_full.shape) > 1 else y_proba_full
+                        y_pred_full = (y_proba_full_attack >= 0.5).astype(int)
+                        
+                        # Calculate full dataset metrics
+                        full_accuracy = accuracy_score(original_y_true, y_pred_full)
+                        full_precision = precision_score(original_y_true, y_pred_full, zero_division=0)
+                        full_recall = recall_score(original_y_true, y_pred_full, zero_division=0)
+                        full_f1 = f1_score(original_y_true, y_pred_full, zero_division=0)
+                        full_auc = roc_auc_score(original_y_true, y_proba_full_attack)
+                        
+                        # Check prediction distribution
+                        pred_dist = np.bincount(y_pred_full, minlength=2)
+                        print(f"   Full dataset predictions: Normal={pred_dist[0]:,}, Attack={pred_dist[1]:,}")
+                        print(f"   Full Accuracy:  {full_accuracy:.4f}")
+                        print(f"   Full Precision: {full_precision:.4f}")
+                        print(f"   Full Recall:    {full_recall:.4f}")
+                        print(f"   Full F1-Score:  {full_f1:.4f}")
+                        print(f"   Full AUC:       {full_auc:.4f}")
+                        
+                        # Add full dataset results
+                        results['full_dataset'] = {
+                            'accuracy': full_accuracy,
+                            'precision': full_precision,
+                            'recall': full_recall,
+                            'f1_score': full_f1,
+                            'auc': full_auc,
+                            'total_samples': len(original_y_true),
+                            'prediction_distribution': {'normal': int(pred_dist[0]), 'attack': int(pred_dist[1])}
+                        }
+                        
+                        # Rename current results as balanced_subset
+                        results['balanced_subset'] = {
+                            'accuracy': accuracy,
+                            'precision': precision,
+                            'recall': recall,
+                            'f1_score': f1,
+                            'auc': auc,
+                            'total_samples': len(y_true),
+                            'sampling_strategy': sampling_strategy
+                        }
+                        
+                        print(f"\n   📝 DISCLOSURE: Both full and balanced metrics reported")
+                        print(f"   📝 Primary metrics use balanced subset ({sampling_strategy})")
             
             return results
             
@@ -779,9 +858,9 @@ class CrossDatasetValidator:
         # Step 2: Create feature mapping
         self.create_feature_mapping()
         
-        # Step 3: Find all CSV files in directory
+        # Step 3: Find all CSV files in directory (recursive search)
         import glob
-        csv_files = glob.glob(os.path.join(botiot_directory, "*.csv"))
+        csv_files = glob.glob(os.path.join(botiot_directory, "**/*.csv"), recursive=True)
         
         if not csv_files:
             print(f"❌ No CSV files found in directory: {botiot_directory}")
@@ -950,7 +1029,7 @@ class CrossDatasetValidator:
         # Create results dataframe
         results_data = []
         for result in all_results:
-            results_data.append({
+            row = {
                 'filename': result['filename'],
                 'samples': len(result['true_labels']),
                 'accuracy': result['accuracy'],
@@ -961,8 +1040,21 @@ class CrossDatasetValidator:
                 'true_positives': result['confusion_matrix'][1,1],
                 'true_negatives': result['confusion_matrix'][0,0],
                 'false_positives': result['confusion_matrix'][0,1],
-                'false_negatives': result['confusion_matrix'][1,0]
-            })
+                'false_negatives': result['confusion_matrix'][1,0],
+                'used_undersampling': result.get('used_undersampling', False),
+                'sampling_strategy': result.get('sampling_strategy', 'none'),
+            }
+            
+            # Add full dataset metrics if available
+            if 'full_dataset' in result:
+                row['full_dataset_accuracy'] = result['full_dataset']['accuracy']
+                row['full_dataset_precision'] = result['full_dataset']['precision']
+                row['full_dataset_recall'] = result['full_dataset']['recall']
+                row['full_dataset_f1_score'] = result['full_dataset']['f1_score']
+                row['full_dataset_auc'] = result['full_dataset']['auc']
+                row['full_dataset_samples'] = result['full_dataset']['total_samples']
+            
+            results_data.append(row)
         
         results_df = pd.DataFrame(results_data)
         results_df.to_csv('cross_dataset_detailed_results.csv', index=False)
@@ -972,18 +1064,29 @@ class CrossDatasetValidator:
 def main():
     """Main function to run cross-dataset validation"""
     import sys
+    import argparse
     
-    # Initialize validator
-    validator = CrossDatasetValidator()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Cross-Dataset Validation Study')
+    parser.add_argument('path', nargs='?', default='[INSERT PATH HERE]', 
+                        help='Path to BoT-IoT CSV file or directory')
+    parser.add_argument('--no-undersampling', action='store_true',
+                        help='Disable undersampling (use full imbalanced dataset)')
+    parser.add_argument('--use-undersampling', action='store_true', default=True,
+                        help='Enable undersampling for balanced evaluation (default)')
+    args = parser.parse_args()
     
-    # Check if path provided as command-line argument
-    if len(sys.argv) > 1:
-        path = sys.argv[1]
-    else:
-        path = '[INSERT PATH HERE]'  # Default path
+    # Determine undersampling setting
+    use_undersampling = not args.no_undersampling
+    
+    # Initialize validator with undersampling setting
+    validator = CrossDatasetValidator(use_undersampling=use_undersampling)
+    
+    path = args.path
     
     print("🚀 Starting Cross-Dataset Validation Study")
     print(f"📁 Path: {path}")
+    print(f"⚖️  Undersampling: {'ENABLED' if use_undersampling else 'DISABLED'}")
     
     # Check if path is a file or directory
     if os.path.isfile(path):
@@ -1006,6 +1109,12 @@ def main():
             print(f"   Accuracy: {results['accuracy']:.4f}")
             print(f"   F1-Score: {results['f1_score']:.4f}")
             print(f"   AUC: {results['auc']:.4f}")
+            
+            # Show both metrics if undersampling was used
+            if results.get('used_undersampling') and 'full_dataset' in results:
+                print(f"\n   📊 Full Dataset Metrics (for transparency):")
+                print(f"      Full Accuracy: {results['full_dataset']['accuracy']:.4f}")
+                print(f"      Full AUC: {results['full_dataset']['auc']:.4f}")
         
         return
     
@@ -1037,6 +1146,15 @@ def main():
         print(f"   Best Performance: {max(accuracies):.4f}")
         print(f"   Worst Performance: {min(accuracies):.4f}")
         
+        # Show full dataset metrics summary if available
+        full_dataset_results = [r for r in results if 'full_dataset' in r]
+        if full_dataset_results:
+            full_accuracies = [r['full_dataset']['accuracy'] for r in full_dataset_results]
+            full_aucs = [r['full_dataset']['auc'] for r in full_dataset_results]
+            print(f"\n📊 FULL DATASET METRICS (for transparency):")
+            print(f"   Average Full Accuracy: {np.mean(full_accuracies):.4f} ± {np.std(full_accuracies):.4f}")
+            print(f"   Average Full AUC: {np.mean(full_aucs):.4f} ± {np.std(full_aucs):.4f}")
+        
         print(f"\n📝 Generated Files:")
         print(f"   - cross_dataset_latex_table.txt (LaTeX table for paper)")
         print(f"   - cross_dataset_detailed_results.csv (detailed results)")
@@ -1044,12 +1162,18 @@ def main():
         print(f"\n💡 This comprehensive study demonstrates the model's generalization")
         print(f"    capability across {len(results)} different BoT-IoT dataset files!")
         
+        if use_undersampling:
+            print(f"\n📝 DISCLOSURE: Balanced subset metrics used for primary evaluation")
+            print(f"   Full dataset metrics also reported for transparency")
+            print(f"   Run with --no-undersampling to use full imbalanced dataset")
+        
     else:
         print(f"\n💡 To run this validation:")
         print(f"   1. Replace '[INSERT PATH HERE]' with actual BoT-IoT directory path")
-        print(f"   2. Ensure the directory contains CSV files")
+        print(f"   2. Ensure the directory contains CSV files (searches recursively)")
         print(f"   3. Ensure the binary model exists in Models/Binary/ directory")
-        print(f"   4. Run: python test_cross_dataset.py")
+        print(f"   4. Run: python test_cross_dataset.py <path>")
+        print(f"   5. Optional: --no-undersampling to disable balanced sampling")
 
 if __name__ == "__main__":
     main()

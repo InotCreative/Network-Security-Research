@@ -12,10 +12,10 @@ def run_multiclass_experiment():
     print("🚀 MULTI-CLASS ATTACK CLASSIFICATION EXPERIMENT")
     print("=" * 60)
     
-    # Check if balanced data exists
+    # Check if preprocessed data exists
     import os
-    if not os.path.exists('UNSW_balanced_train.csv'):
-        print("📊 Creating balanced dataset first...")
+    if not os.path.exists('preprocessed_train.csv'):
+        print("📊 Creating preprocessed dataset first...")
         subprocess.run([sys.executable, 'create_balanced_split.py'])
     
     print("🌈 RUNNING MULTI-CLASS CLASSIFICATION")
@@ -25,8 +25,8 @@ def run_multiclass_experiment():
     # Run multi-class classification only
     multiclass_cmd = [
         sys.executable, 'run_novel_ml.py',
-        '--dataset', 'UNSW_balanced_train.csv',
-        '--test-dataset', 'UNSW_balanced_test.csv',
+        '--dataset', 'preprocessed_train.csv',
+        '--test-dataset', 'preprocessed_test.csv',
         '--multiclass',
         '--compare-baseline'
     ]
@@ -165,7 +165,7 @@ def analyze_attack_distribution():
         import pandas as pd
         
         # Load balanced training data
-        df = pd.read_csv('UNSW_balanced_train.csv')
+        df = pd.read_csv('preprocessed_train.csv')
         
         if 'attack_cat' in df.columns:
             attack_dist = df['attack_cat'].value_counts()
@@ -211,5 +211,5 @@ if __name__ == "__main__":
     run_multiclass_experiment()
     
     print("💡 To run experiments manually:")
-    print("   Binary:     python run_novel_ml.py --dataset UNSW_balanced_train.csv --test-dataset UNSW_balanced_test.csv")
-    print("   Multi-class: python run_novel_ml.py --dataset UNSW_balanced_train.csv --test-dataset UNSW_balanced_test.csv --multiclass")
+    print("   Binary:     python run_novel_ml.py --dataset preprocessed_train.csv --test-dataset preprocessed_test.csv")
+    print("   Multi-class: python run_novel_ml.py --dataset preprocessed_train.csv --test-dataset preprocessed_test.csv --multiclass")

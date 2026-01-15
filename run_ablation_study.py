@@ -35,8 +35,8 @@ def check_prerequisites():
     issues = []
     
     # Check for training data
-    if not os.path.exists('UNSW_balanced_train.csv'):
-        issues.append("UNSW_balanced_train.csv not found - run: python create_balanced_split.py")
+    if not os.path.exists('preprocessed_train.csv'):
+        issues.append("preprocessed_train.csv not found - run: python create_balanced_split.py")
     
     # Check for cached models
     binary_cache = os.path.exists('Models/Binary')
@@ -44,10 +44,10 @@ def check_prerequisites():
     main_model = os.path.exists('trained_novel_ensemble_model.pkl')
     
     if not binary_cache and not main_model:
-        issues.append("No cached binary models - run: python run_novel_ml.py --dataset UNSW_balanced_train.csv")
+        issues.append("No cached binary models - run: python run_novel_ml.py --dataset preprocessed_train.csv")
     
     if not multiclass_cache:
-        issues.append("No cached multiclass models - run: python run_novel_ml.py --dataset UNSW_balanced_train.csv --multiclass")
+        issues.append("No cached multiclass models - run: python run_novel_ml.py --dataset preprocessed_train.csv --multiclass")
     
     if issues:
         print("\n⚠️  MISSING PREREQUISITES:")
@@ -55,9 +55,9 @@ def check_prerequisites():
             print(f"   • {issue}")
         print("\n💡 Run the following commands first:")
         print("   1. python create_balanced_split.py")
-        print("   2. python run_novel_ml.py --dataset UNSW_balanced_train.csv")
-        print("   3. python run_novel_ml.py --dataset UNSW_balanced_train.csv --multiclass")
-        print("   4. python train_improved_specialists.py UNSW_balanced_train.csv")
+        print("   2. python run_novel_ml.py --dataset preprocessed_train.csv")
+        print("   3. python run_novel_ml.py --dataset preprocessed_train.csv --multiclass")
+        print("   4. python train_improved_specialists.py preprocessed_train.csv")
         return False
     
     print("✅ All prerequisites met!")
@@ -299,9 +299,9 @@ def generate_final_report(binary_results, multiclass_results, specialist_results
 
 def main():
     parser = argparse.ArgumentParser(description='Complete Ablation Study Runner')
-    parser.add_argument('--train', type=str, default='UNSW_balanced_train.csv',
+    parser.add_argument('--train', type=str, default='preprocessed_train.csv',
                        help='Training dataset CSV')
-    parser.add_argument('--test', type=str, default='UNSW_balanced_test.csv',
+    parser.add_argument('--test', type=str, default='preprocessed_test.csv',
                        help='Test dataset CSV')
     parser.add_argument('--skip-binary', action='store_true',
                        help='Skip binary classification ablation')

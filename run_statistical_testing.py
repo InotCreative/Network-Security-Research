@@ -18,7 +18,7 @@ Usage:
     python run_statistical_testing.py --baseline path/to/baseline.pkl --models model1.pkl model2.pkl --test-data test.csv
     
     # Use cached ensemble model
-    python run_statistical_testing.py --model-a trained_novel_ensemble_model.pkl --model-b Models/Binary/baseline.pkl --test-data UNSW_balanced_test.csv
+    python run_statistical_testing.py --model-a trained_novel_ensemble_model.pkl --model-b Models/Binary/baseline.pkl --test-data preprocessed_test.csv
 """
 
 import os

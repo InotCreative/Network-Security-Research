@@ -7,7 +7,7 @@ This implements the complete ablation study with:
 - 4 configurations per attack for Specialists (S1-S4)
 - Cached models for ensemble configs (E1-E4, S1)
 - Fresh training for GB baselines (B1-B5) and specialist variants (S2-S4)
-- Consistent 5-fold CV with statistical testing
+- Consistent 10-fold CV with statistical testing
 
 Feature Groups (23 total, engineered by DynamicFeatureEngineer in novel_ensemble_ml.py):
 - Statistical (7): total_bytes, byte_ratio, byte_imbalance, log_total_bytes, 
@@ -27,7 +27,7 @@ from collections import defaultdict
 from scipy import stats
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder, RobustScaler
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.feature_selection import SelectKBest, f_classif, mutual_info_classif, RFE
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
@@ -297,7 +297,7 @@ class AblationStudy:
         self.cache_dir = cache_dir
         
         # CV setup (consistent across all configs)
-        self.cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        self.cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
         
         # Results storage
         self.results = {}
@@ -495,34 +495,38 @@ class AblationStudy:
             X_train_selected = X_train_scaled
             X_test_selected = X_test_scaled
         
-        # Train Gradient Boosting
-        print(f"   Training: GradientBoostingClassifier (fresh)")
-        
+        # Train model based on classification type
         n_classes = len(np.unique(y_train))
         if n_classes > 2:
-            gb = GradientBoostingClassifier(
-                n_estimators=50, max_depth=6, learning_rate=0.1, random_state=42
+            # Multiclass: Use XGBoost (best performing multiclass model)
+            print(f"   Training: XGBClassifier (fresh)")
+            import xgboost as xgb
+            model = xgb.XGBClassifier(
+                random_state=42, n_estimators=100, max_depth=6,
+                learning_rate=0.1, objective='multi:softprob', eval_metric='mlogloss'
             )
         else:
-            gb = GradientBoostingClassifier(
-                n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42
+            # Binary: Use ExtraTrees (best performing binary model)
+            print(f"   Training: ExtraTreesClassifier (fresh)")
+            model = ExtraTreesClassifier(
+                n_estimators=200, max_depth=None, min_samples_split=5, min_samples_leaf=2, class_weight='balanced', n_jobs=-1, random_state=42
             )
         
         # Cross-validation
-        print(f"   Cross-Validation: 5-fold")
-        cv_accuracy = self.get_cv_scores(gb, X_train_selected, y_train, 'accuracy')
-        cv_f1 = self.get_cv_scores(gb, X_train_selected, y_train, 
+        print(f"   Cross-Validation: 10-fold")
+        cv_accuracy = self.get_cv_scores(model, X_train_selected, y_train, 'accuracy')
+        cv_f1 = self.get_cv_scores(model, X_train_selected, y_train, 
                                    'f1' if n_classes == 2 else 'f1_macro')
         
         print(f"      CV Accuracy: {cv_accuracy.mean():.4f} ± {cv_accuracy.std():.4f}")
         print(f"      CV F1: {cv_f1.mean():.4f} ± {cv_f1.std():.4f}")
         
         # Train final model and evaluate on test set
-        gb.fit(X_train_selected, y_train)
-        y_pred = gb.predict(X_test_selected)
+        model.fit(X_train_selected, y_train)
+        y_pred = model.predict(X_test_selected)
         
         # Get probabilities for AUC
-        y_proba = gb.predict_proba(X_test_selected)
+        y_proba = model.predict_proba(X_test_selected)
         
         # Compute all metrics based on classification type
         test_accuracy = accuracy_score(y_test, y_pred)
@@ -578,7 +582,7 @@ class AblationStudy:
             'test_auc': test_auc,
             'test_balanced_acc': test_balanced_acc,
             'n_features': X_train_selected.shape[1],
-            'model_type': 'GradientBoosting',
+            'model_type': 'XGBoost' if n_classes > 2 else 'ExtraTrees',
             'source': 'fresh'
         }
         
@@ -593,14 +597,171 @@ class AblationStudy:
 
     
     # =========================================================================
-    # ENSEMBLE CONFIGURATIONS (E1-E4) - Use Cached Models
+    # ENSEMBLE CONFIGURATIONS (E1-E4)
+    # E1/E2: Train fresh ensemble WITHOUT feature selection
+    # E3/E4: Use cached ensemble WITH feature selection (already trained with selection)
     # =========================================================================
     
     def run_ensemble_config(self, config_name, df_train, df_test, 
                            use_selection=False, use_optimized_mixing=False):
-        """Run ensemble configuration using cached models."""
+        """
+        Run ensemble configuration.
+        
+        E1/E2 (use_selection=False): Train fresh ensemble on ALL features
+        E3/E4 (use_selection=True): Use cached ensemble (trained with selection)
+        """
+        
+        if use_selection:
+            # E3/E4: Use cached ensemble (it was trained with feature selection)
+            return self._run_cached_ensemble(config_name, df_train, df_test, 
+                                            use_optimized_mixing=use_optimized_mixing)
+        else:
+            # E1/E2: Train fresh ensemble WITHOUT feature selection
+            return self._run_fresh_ensemble(config_name, df_train, df_test,
+                                           use_optimized_mixing=use_optimized_mixing)
+    
+    def _run_fresh_ensemble(self, config_name, df_train, df_test, use_optimized_mixing=False):
+        """Train a fresh ensemble WITHOUT feature selection (for E1/E2)."""
         print(f"\n{'='*60}")
-        print(f"🔬 Configuration: {config_name} (CACHED ENSEMBLE)")
+        print(f"🔬 Configuration: {config_name} (FRESH ENSEMBLE - No Selection)")
+        print(f"{'='*60}")
+        
+        # Feature engineering with all 23 features
+        print(f"   Feature Engineering: All 23 features (fresh)")
+        fe = DynamicFeatureEngineer()
+        df_train_eng = fe.fit_transform(self.preprocess_data(df_train))
+        df_test_eng = fe.transform(self.preprocess_data(df_test))
+        
+        # Get features and labels
+        X_train, y_train, feature_names = self.get_features_and_labels(df_train_eng)
+        X_test, y_test, _ = self.get_features_and_labels(df_test_eng)
+        
+        print(f"   Features: {X_train.shape[1]} (no selection)")
+        
+        # Scale features
+        scaler = RobustScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        print(f"   Feature Selection: No")
+        print(f"   Training: AdaptiveEnsembleClassifier (fresh)")
+        
+        # Create and train fresh ensemble
+        n_classes = len(np.unique(y_train))
+        from novel_ensemble_ml import AdaptiveEnsembleClassifier
+        
+        classifier = AdaptiveEnsembleClassifier(
+            num_classes=n_classes,
+            classification_type=self.classification_type
+        )
+        
+        # Train the ensemble
+        classifier.fit(X_train_scaled, y_train, classification_type=self.classification_type)
+        
+        # Set mixing ratio
+        if use_optimized_mixing and hasattr(classifier, 'optimal_mixing_ratio'):
+            mixing_ratio = classifier.optimal_mixing_ratio
+            print(f"   Mixing Ratio: Optimized ({mixing_ratio:.2f})")
+        else:
+            mixing_ratio = 1.0
+            classifier.optimal_mixing_ratio = 1.0
+            print(f"   Mixing Ratio: α=1.0 (pure meta-learner)")
+        
+        # Cross-validation - use scores from ensemble training
+        print(f"   Cross-Validation: {len(classifier.ensemble_cv_scores)}-fold (from training)")
+        
+        # The ensemble already computed CV during fit()
+        cv_accuracy = classifier.ensemble_cv_scores
+        cv_f1 = classifier.ensemble_cv_scores  # Approximate with accuracy (F1 not stored)
+        
+        print(f"      CV Accuracy: {np.mean(cv_accuracy):.4f} ± {np.std(cv_accuracy):.4f}")
+        print(f"      CV F1: {np.mean(cv_f1):.4f} ± {np.std(cv_f1):.4f}")
+        
+        # Test evaluation
+        y_pred = classifier.predict(X_test_scaled)
+        
+        # Get probabilities for AUC
+        y_proba = None
+        if hasattr(classifier, 'predict_proba'):
+            try:
+                y_proba = classifier.predict_proba(X_test_scaled)
+            except:
+                pass
+        
+        test_accuracy = accuracy_score(y_test, y_pred)
+        test_balanced_acc = balanced_accuracy_score(y_test, y_pred)
+        
+        if n_classes == 2:
+            test_precision = precision_score(y_test, y_pred, zero_division=0)
+            test_recall = recall_score(y_test, y_pred, zero_division=0)
+            test_f1 = f1_score(y_test, y_pred, zero_division=0)
+            if y_proba is not None:
+                test_auc = roc_auc_score(y_test, y_proba[:, 1])
+            else:
+                test_auc = 0.0
+            
+            print(f"   Test Metrics (Binary):")
+            print(f"      Accuracy: {test_accuracy:.4f}")
+            print(f"      Precision: {test_precision:.4f}")
+            print(f"      Recall: {test_recall:.4f}")
+            print(f"      F1-Score: {test_f1:.4f}")
+            print(f"      AUC-ROC: {test_auc:.4f}")
+            print(f"      Balanced Accuracy: {test_balanced_acc:.4f}")
+        else:
+            test_precision = precision_score(y_test, y_pred, average='macro', zero_division=0)
+            test_recall = recall_score(y_test, y_pred, average='macro', zero_division=0)
+            test_f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
+            test_f1_weighted = f1_score(y_test, y_pred, average='weighted', zero_division=0)
+            if y_proba is not None:
+                try:
+                    test_auc = roc_auc_score(y_test, y_proba, multi_class='ovr', average='macro')
+                except ValueError:
+                    test_auc = 0.0
+            else:
+                test_auc = 0.0
+            
+            print(f"   Test Metrics (Multiclass):")
+            print(f"      Accuracy: {test_accuracy:.4f}")
+            print(f"      Macro Precision: {test_precision:.4f}")
+            print(f"      Macro Recall: {test_recall:.4f}")
+            print(f"      Macro F1: {test_f1:.4f}")
+            print(f"      Weighted F1: {test_f1_weighted:.4f}")
+            print(f"      Macro AUC (OVR): {test_auc:.4f}")
+            print(f"      Balanced Accuracy: {test_balanced_acc:.4f}")
+        
+        # Store results
+        result = {
+            'config': config_name,
+            'cv_accuracy': cv_accuracy,
+            'cv_accuracy_mean': cv_accuracy.mean(),
+            'cv_accuracy_std': cv_accuracy.std(),
+            'cv_f1': cv_f1,
+            'cv_f1_mean': cv_f1.mean(),
+            'cv_f1_std': cv_f1.std(),
+            'test_accuracy': test_accuracy,
+            'test_precision': test_precision,
+            'test_recall': test_recall,
+            'test_f1': test_f1,
+            'test_auc': test_auc,
+            'test_balanced_acc': test_balanced_acc,
+            'n_features': X_train_scaled.shape[1],
+            'model_type': 'Ensemble',
+            'mixing_ratio': mixing_ratio,
+            'source': 'fresh'
+        }
+        
+        if n_classes > 2:
+            result['test_f1_weighted'] = test_f1_weighted
+        
+        self.results[config_name] = result
+        self.cv_scores[config_name] = cv_accuracy
+        
+        return result
+    
+    def _run_cached_ensemble(self, config_name, df_train, df_test, use_optimized_mixing=False):
+        """Use cached ensemble WITH feature selection (for E3/E4)."""
+        print(f"\n{'='*60}")
+        print(f"🔬 Configuration: {config_name} (CACHED ENSEMBLE - With Selection)")
         print(f"{'='*60}")
         
         # Load cached ensemble
@@ -634,9 +795,7 @@ class AblationStudy:
         classifier = cached['classifier']
         feature_engineer = cached['feature_engineer']
         scaler = cached['scaler']
-        feature_selector = cached.get('feature_selector', None)
         selected_indices = cached.get('selected_feature_indices', None)
-        stored_feature_names = cached.get('feature_names', None)
         
         print(f"   ✅ Ensemble loaded successfully")
         
@@ -661,21 +820,20 @@ class AblationStudy:
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
-        # Feature selection
-        if use_selection and selected_indices is not None:
+        # Apply feature selection (required for cached model)
+        if selected_indices is not None:
             print(f"   Feature Selection: Yes (using cached indices)")
             X_train_selected = X_train_scaled[:, selected_indices]
             X_test_selected = X_test_scaled[:, selected_indices]
             print(f"   Selected Features: {X_train_selected.shape[1]}")
         else:
-            print(f"   Feature Selection: No")
+            print(f"   ⚠️ No cached indices found, using all features")
             X_train_selected = X_train_scaled
             X_test_selected = X_test_scaled
         
         # Set mixing ratio
         if use_optimized_mixing:
             print(f"   Mixing Ratio: Optimized ({stored_ratio:.2f})")
-            # Keep the stored optimized ratio
         else:
             print(f"   Mixing Ratio: α=1.0 (pure meta-learner)")
             classifier.optimal_mixing_ratio = 1.0
@@ -685,7 +843,6 @@ class AblationStudy:
             cv_accuracy = np.array(classifier.ensemble_cv_scores)
             print(f"   CV Accuracy (cached): {cv_accuracy.mean():.4f} ± {cv_accuracy.std():.4f}")
         else:
-            # Compute CV scores
             print(f"   Computing CV scores...")
             cv_accuracy = self.get_cv_scores(classifier, X_train_selected, y_train, 'accuracy')
             print(f"   CV Accuracy: {cv_accuracy.mean():.4f} ± {cv_accuracy.std():.4f}")
@@ -706,7 +863,6 @@ class AblationStudy:
         test_balanced_acc = balanced_accuracy_score(y_test, y_pred)
         
         if n_classes == 2:
-            # Binary classification metrics
             test_precision = precision_score(y_test, y_pred, zero_division=0)
             test_recall = recall_score(y_test, y_pred, zero_division=0)
             test_f1 = f1_score(y_test, y_pred, zero_division=0)
@@ -723,7 +879,6 @@ class AblationStudy:
             print(f"      AUC-ROC: {test_auc:.4f}")
             print(f"      Balanced Accuracy: {test_balanced_acc:.4f}")
         else:
-            # Multiclass classification metrics
             test_precision = precision_score(y_test, y_pred, average='macro', zero_division=0)
             test_recall = recall_score(y_test, y_pred, average='macro', zero_division=0)
             test_f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
@@ -767,7 +922,6 @@ class AblationStudy:
             'source': 'cached'
         }
         
-        # Add weighted F1 for multiclass
         if n_classes > 2:
             result['test_f1_weighted'] = test_f1_weighted
         
@@ -1046,18 +1200,18 @@ class AblationStudy:
         else:
             X_train_resampled, y_train_resampled = X_train_selected, y_train
         
-        # Train GB
-        gb = GradientBoostingClassifier(
-            n_estimators=100, max_depth=6, learning_rate=0.1, random_state=42
+        # Train ET
+        et = ExtraTreesClassifier(
+            n_estimators=200, max_depth=None, min_samples_split=5, min_samples_leaf=2, class_weight='balanced', n_jobs=-1, random_state=42
         )
         
         # CV on original (non-SMOTE) data
-        cv_f1 = cross_val_score(gb, X_train_selected, y_train, cv=self.cv, scoring='f1')
+        cv_f1 = cross_val_score(et, X_train_selected, y_train, cv=self.cv, scoring='f1')
         
         # Train and evaluate
-        gb.fit(X_train_resampled, y_train_resampled)
-        y_pred = gb.predict(X_test_selected)
-        y_proba = gb.predict_proba(X_test_selected)
+        et.fit(X_train_resampled, y_train_resampled)
+        y_pred = et.predict(X_test_selected)
+        y_proba = et.predict_proba(X_test_selected)
         
         # Binary classification metrics (specialists are always binary)
         test_accuracy = accuracy_score(y_test, y_pred)
@@ -1344,10 +1498,10 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description='Ablation Study for Novel Ensemble ML')
-    parser.add_argument('--train', type=str, default='UNSW_balanced_train.csv',
+    parser.add_argument('--train', type=str, default='preprocessed_train.csv',
                        help='Training dataset CSV')
-    parser.add_argument('--test', type=str, default=None,
-                       help='Test dataset CSV (optional)')
+    parser.add_argument('--test', type=str, default='preprocessed_test.csv',
+                       help='Test dataset CSV')
     parser.add_argument('--mode', type=str, default='binary', choices=['binary', 'multiclass'],
                        help='Classification mode')
     parser.add_argument('--cache-dir', type=str, default='Models',

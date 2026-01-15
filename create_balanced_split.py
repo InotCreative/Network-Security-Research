@@ -1,25 +1,49 @@
 #!/usr/bin/env python3
 """
-Create properly balanced train/test split from UNSW-NB15 data
+Preprocess UNSW-NB15 Official Train/Test Split
+
+This script uses the OFFICIAL UNSW-NB15 train/test split as-is (NO re-splitting).
+All preprocessing statistics are computed from training data only to prevent data leakage.
+
+Output Files:
+- preprocessed_train.csv: Official training set with imputation + encoding
+- preprocessed_test.csv: Official test set with imputation + encoding (using TRAIN statistics)
+
+What's Included:
+✅ Missing values imputed (using train statistics)
+✅ Categorical features label-encoded (fit on train)
+✅ Infinite values replaced with 0
+
+What's NOT Included (done per-experiment):
+❌ Feature engineering
+❌ Scaling
+❌ Feature selection
 """
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
 import numpy as np
+from sklearn.preprocessing import LabelEncoder
+import os
 
-def create_balanced_split():
-    print("🔧 CREATING BALANCED TRAIN/TEST SPLIT")
-    print("=" * 50)
+
+def preprocess_official_split():
+    """
+    Preprocess the official UNSW-NB15 train/test split WITHOUT re-splitting.
     
-    import os
-    
-    # Load files from provided paths
-    print("📊 Loading original files...")
+    This prevents data leakage by:
+    1. Using official split as-is (no concatenation)
+    2. Computing imputation statistics from training data only
+    3. Fitting label encoders on training data only
+    """
+    print("🔧 PREPROCESSING OFFICIAL UNSW-NB15 SPLIT")
+    print("=" * 60)
+    print("⚠️  Using OFFICIAL split - NO re-splitting (prevents data leakage)")
+    print("=" * 60)
     
     # Check for files in multiple possible locations
     possible_paths = [
         '',  # Current directory
-        '../Network Analysis/UNSW_NB15 Dataset/',  # From error message
+        '../Network Analysis/UNSW_NB15 Dataset/',
         './UNSW_NB15 Dataset/',
         './data/',
         '../data/'
@@ -28,8 +52,8 @@ def create_balanced_split():
     train_files = ['UNSW_NB15_training-set.csv', 'training-set.csv', 'train.csv']
     test_files = ['UNSW_NB15_testing-set.csv', 'testing-set.csv', 'test.csv']
     
-    train_df = None
-    test_df = None
+    df_train = None
+    df_test = None
     found_train_path = None
     found_test_path = None
     
@@ -38,11 +62,11 @@ def create_balanced_split():
         for train_file in train_files:
             full_path = os.path.join(path, train_file)
             if os.path.exists(full_path):
-                train_df = pd.read_csv(full_path)
+                df_train = pd.read_csv(full_path)
                 found_train_path = full_path
-                print(f"Found training file: {full_path}")
+                print(f"✅ Found training file: {full_path}")
                 break
-        if train_df is not None:
+        if df_train is not None:
             break
     
     # Search for test file
@@ -50,15 +74,15 @@ def create_balanced_split():
         for test_file in test_files:
             full_path = os.path.join(path, test_file)
             if os.path.exists(full_path):
-                test_df = pd.read_csv(full_path)
+                df_test = pd.read_csv(full_path)
                 found_test_path = full_path
-                print(f"Found test file: {full_path}")
+                print(f"✅ Found test file: {full_path}")
                 break
-        if test_df is not None:
+        if df_test is not None:
             break
     
-    if train_df is None or test_df is None:
-        print("\n[ERROR] UNSW-NB15 dataset files not found!")
+    if df_train is None or df_test is None:
+        print("\n❌ ERROR: UNSW-NB15 dataset files not found!")
         print("Please ensure you have the UNSW-NB15 dataset files:")
         print("  - UNSW_NB15_training-set.csv")
         print("  - UNSW_NB15_testing-set.csv")
@@ -69,88 +93,134 @@ def create_balanced_split():
         print("\nPlease download the UNSW-NB15 dataset and place the files in one of these locations.")
         raise FileNotFoundError("Required UNSW-NB15 dataset files not found")
     
-    print(f"Training file: {train_df.shape}")
-    print(f"Test file: {test_df.shape}")
+    print(f"\n📊 Dataset Sizes:")
+    print(f"   Training: {df_train.shape[0]:,} samples, {df_train.shape[1]} features")
+    print(f"   Test: {df_test.shape[0]:,} samples, {df_test.shape[1]} features")
     
     # Check label distributions
-    target_col = 'label' if 'label' in train_df.columns else 'attack'
+    target_col = 'label' if 'label' in df_train.columns else 'attack'
     
-    train_dist = train_df[target_col].value_counts().sort_index()
-    test_dist = test_df[target_col].value_counts().sort_index()
+    train_dist = df_train[target_col].value_counts().sort_index()
+    test_dist = df_test[target_col].value_counts().sort_index()
     
-    print(f"\nOriginal distributions:")
-    print(f"Training file - Normal: {train_dist[0]}, Attack: {train_dist[1]} ({train_dist[1]/(train_dist[0]+train_dist[1])*100:.1f}% attack)")
-    print(f"Test file - Normal: {test_dist[0]}, Attack: {test_dist[1]} ({test_dist[1]/(test_dist[0]+test_dist[1])*100:.1f}% attack)")
+    print(f"\n📊 Official Split Distributions:")
+    print(f"   Training - Normal: {train_dist[0]:,}, Attack: {train_dist[1]:,} ({train_dist[1]/(train_dist[0]+train_dist[1])*100:.1f}% attack)")
+    print(f"   Test - Normal: {test_dist[0]:,}, Attack: {test_dist[1]:,} ({test_dist[1]/(test_dist[0]+test_dist[1])*100:.1f}% attack)")
     
-    # Combine datasets
-    print(f"\n🔄 Combining datasets...")
-    combined_df = pd.concat([train_df, test_df], ignore_index=True)
-    combined_dist = combined_df[target_col].value_counts().sort_index()
+    # =========================================================================
+    # IMPUTATION: Compute statistics from TRAINING data only
+    # =========================================================================
+    print(f"\n🔧 IMPUTATION (using TRAINING statistics only)")
+    print("-" * 40)
     
-    print(f"Combined dataset: {combined_df.shape}")
-    print(f"Combined - Normal: {combined_dist[0]}, Attack: {combined_dist[1]} ({combined_dist[1]/(combined_dist[0]+combined_dist[1])*100:.1f}% attack)")
+    # Identify numeric columns
+    numeric_cols = df_train.select_dtypes(include=[np.number]).columns.tolist()
     
-    # Create stratified split based on data size
-    print(f"\n✂️  Creating stratified split...")
+    # Compute medians from training data only
+    train_medians = df_train[numeric_cols].median()
     
-    # Determine split ratio based on combined data size
-    total_samples = len(combined_df)
-    if total_samples < 10000:
-        test_ratio = 0.2  # Smaller test set for small datasets
-    elif total_samples < 100000:
-        test_ratio = 0.25  # Medium test set for medium datasets  
-    else:
-        test_ratio = 0.3  # Larger test set for large datasets
+    # Count missing values before imputation
+    train_missing = df_train[numeric_cols].isnull().sum().sum()
+    test_missing = df_test[numeric_cols].isnull().sum().sum()
     
-    print(f"Using {test_ratio:.0%} for test set based on data size ({total_samples} samples)")
+    print(f"   Missing values - Train: {train_missing:,}, Test: {test_missing:,}")
     
-    train_new, test_new = train_test_split(
-        combined_df, 
-        test_size=test_ratio, 
-        random_state=42, 
-        stratify=combined_df[target_col]
-    )
+    # Apply imputation using TRAINING medians to BOTH sets
+    df_train[numeric_cols] = df_train[numeric_cols].fillna(train_medians)
+    df_test[numeric_cols] = df_test[numeric_cols].fillna(train_medians)  # Uses TRAIN statistics!
     
-    # Check new distributions
-    train_new_dist = train_new[target_col].value_counts().sort_index()
-    test_new_dist = test_new[target_col].value_counts().sort_index()
+    print(f"   ✅ Imputed using training medians")
     
-    print(f"\nNew balanced distributions:")
-    print(f"New training: {train_new.shape}")
-    print(f"  Normal: {train_new_dist[0]}, Attack: {train_new_dist[1]} ({train_new_dist[1]/(train_new_dist[0]+train_new_dist[1])*100:.1f}% attack)")
-    print(f"New test: {test_new.shape}")
-    print(f"  Normal: {test_new_dist[0]}, Attack: {test_new_dist[1]} ({test_new_dist[1]/(test_new_dist[0]+test_new_dist[1])*100:.1f}% attack)")
+    # =========================================================================
+    # HANDLE INFINITE VALUES
+    # =========================================================================
+    print(f"\n🔧 HANDLING INFINITE VALUES")
+    print("-" * 40)
     
-    # Save balanced datasets
-    print(f"\n💾 Saving balanced datasets...")
-    train_new.to_csv('UNSW_balanced_train.csv', index=False)
-    test_new.to_csv('UNSW_balanced_test.csv', index=False)
+    train_inf = np.isinf(df_train[numeric_cols]).sum().sum()
+    test_inf = np.isinf(df_test[numeric_cols]).sum().sum()
     
-    print(f"✅ Created balanced datasets:")
-    print(f"   📁 UNSW_balanced_train.csv ({len(train_new)} samples)")
-    print(f"   📁 UNSW_balanced_test.csv ({len(test_new)} samples)")
+    print(f"   Infinite values - Train: {train_inf:,}, Test: {test_inf:,}")
     
-    # Verify the split is good
-    train_attack_ratio = train_new_dist[1] / (train_new_dist[0] + train_new_dist[1])
-    test_attack_ratio = test_new_dist[1] / (test_new_dist[0] + test_new_dist[1])
-    ratio_diff = abs(train_attack_ratio - test_attack_ratio)
+    df_train[numeric_cols] = df_train[numeric_cols].replace([np.inf, -np.inf], 0)
+    df_test[numeric_cols] = df_test[numeric_cols].replace([np.inf, -np.inf], 0)
     
-    print(f"\n🎯 Quality Check:")
-    print(f"   Train attack ratio: {train_attack_ratio:.3f}")
-    print(f"   Test attack ratio: {test_attack_ratio:.3f}")
-    print(f"   Difference: {ratio_diff:.3f}")
+    print(f"   ✅ Replaced infinite values with 0")
     
-    if ratio_diff < 0.01:
-        print(f"   ✅ Excellent balance (difference < 1%)")
-    elif ratio_diff < 0.05:
-        print(f"   ✅ Good balance (difference < 5%)")
-    else:
-        print(f"   ⚠️  Moderate balance (difference > 5%)")
+    # =========================================================================
+    # LABEL ENCODING: Fit on TRAINING data only
+    # =========================================================================
+    print(f"\n🔧 LABEL ENCODING (fit on TRAINING only)")
+    print("-" * 40)
     
-    return 'UNSW_balanced_train.csv', 'UNSW_balanced_test.csv'
+    categorical_cols = ['proto', 'service', 'state']
+    label_encoders = {}
+    
+    for col in categorical_cols:
+        if col in df_train.columns:
+            le = LabelEncoder()
+            
+            # Fit on training data only
+            le.fit(df_train[col].astype(str))
+            
+            # Transform training data
+            df_train[col] = le.transform(df_train[col].astype(str))
+            
+            # Transform test data - handle unseen categories
+            test_values = df_test[col].astype(str)
+            unseen_mask = ~test_values.isin(le.classes_)
+            unseen_count = unseen_mask.sum()
+            
+            if unseen_count > 0:
+                print(f"   ⚠️  {col}: {unseen_count} unseen categories in test set → mapped to -1 (unknown)")
+                # Map known categories normally, unseen get -1
+                test_values_mapped = test_values.copy()
+                test_values_mapped[unseen_mask] = le.classes_[0]  # Temporarily map to known class for transform
+                df_test[col] = le.transform(test_values_mapped)
+                df_test.loc[unseen_mask, col] = -1  # Then set unseen to -1 (tree-friendly unknown marker)
+            else:
+                df_test[col] = le.transform(test_values)
+            
+            label_encoders[col] = le
+            print(f"   ✅ {col}: {len(le.classes_)} categories encoded (unseen → -1)")
+    
+    # =========================================================================
+    # SAVE PREPROCESSED FILES
+    # =========================================================================
+    print(f"\n💾 SAVING PREPROCESSED FILES")
+    print("-" * 40)
+    
+    df_train.to_csv('preprocessed_train.csv', index=False)
+    df_test.to_csv('preprocessed_test.csv', index=False)
+    
+    print(f"   ✅ preprocessed_train.csv ({len(df_train):,} samples)")
+    print(f"   ✅ preprocessed_test.csv ({len(df_test):,} samples)")
+    
+    # =========================================================================
+    # VALIDATION SUMMARY
+    # =========================================================================
+    print(f"\n✅ PREPROCESSING COMPLETE")
+    print("=" * 60)
+    print("📋 Validation Checklist:")
+    print("   ✅ Training CSV loaded independently")
+    print("   ✅ Test CSV loaded independently (NO concatenation)")
+    print("   ✅ Imputation statistics computed from train only")
+    print("   ✅ Label encoders fit on train only")
+    print("   ✅ Test set preserved for final evaluation only")
+    print("   ✅ NO train_test_split() called on combined data")
+    
+    print(f"\n📊 Final Statistics:")
+    final_train_dist = df_train[target_col].value_counts().sort_index()
+    final_test_dist = df_test[target_col].value_counts().sort_index()
+    
+    print(f"   Train - Normal: {final_train_dist[0]:,}, Attack: {final_train_dist[1]:,}")
+    print(f"   Test - Normal: {final_test_dist[0]:,}, Attack: {final_test_dist[1]:,}")
+    
+    return 'preprocessed_train.csv', 'preprocessed_test.csv'
+
 
 if __name__ == "__main__":
-    train_file, test_file = create_balanced_split()
+    train_file, test_file = preprocess_official_split()
     
-    print(f"\n🚀 Now run your experiment with balanced data:")
-    print(f"python run_novel_ml.py --dataset {train_file} --test-dataset {test_file} --compare-baseline --analyze-components")
+    print(f"\n🚀 Now run your experiment with preprocessed data:")
+    print(f"   python run_novel_ml.py --dataset {train_file} --test-dataset {test_file} --compare-baseline --analyze-components")

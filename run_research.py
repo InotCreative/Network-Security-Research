@@ -16,7 +16,7 @@ def debug_and_setup():
     print("-" * 30)
     
     # Check data files
-    required_files = ['UNSW_balanced_train.csv', 'UNSW_realistic_train.csv']
+    required_files = ['preprocessed_train.csv', 'UNSW_realistic_train.csv']
     missing_files = []
     
     for file_name in required_files:
@@ -35,8 +35,8 @@ def debug_and_setup():
         if 'UNSW_realistic_train.csv' in missing_files:
             print(f"   Creating realistic datasets...")
             # Simple realistic data creation
-            if os.path.exists('UNSW_balanced_train.csv'):
-                df = pd.read_csv('UNSW_balanced_train.csv')
+            if os.path.exists('preprocessed_train.csv'):
+                df = pd.read_csv('preprocessed_train.csv')
                 # Add small amount of noise
                 import numpy as np
                 numerical_cols = df.select_dtypes(include=[np.number]).columns
@@ -63,8 +63,8 @@ def run_comprehensive_training():
     try:
         cmd = [
             sys.executable, 'run_novel_ml.py',
-            '--dataset', 'UNSW_balanced_train.csv',
-            '--test-dataset', 'UNSW_balanced_test.csv',
+            '--dataset', 'preprocessed_train.csv',
+            '--test-dataset', 'preprocessed_test.csv',
             '--compare-baseline',
             '--analyze-components'
         ]

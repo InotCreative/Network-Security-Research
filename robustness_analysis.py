@@ -833,7 +833,7 @@ def run_comprehensive_robustness_test():
             return False
         
         # Load test data
-        test_df = pd.read_csv('UNSW_balanced_test.csv')
+        test_df = pd.read_csv('preprocessed_test.csv')
         
         # Prepare data (simplified preprocessing)
         from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -863,7 +863,7 @@ def run_comprehensive_robustness_test():
         y_test = test_df[target_col].values
         
         # For training data, use a subset for speed
-        train_df = pd.read_csv('UNSW_balanced_train.csv').sample(n=10000, random_state=42)
+        train_df = pd.read_csv('preprocessed_train.csv').sample(n=10000, random_state=42)
         train_df = train_df.fillna(0)
         for col in categorical_cols:
             if col in train_df.columns:

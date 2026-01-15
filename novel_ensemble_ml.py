@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC, LinearSVC
@@ -653,7 +654,7 @@ class DynamicFeatureEngineer:
         
         return features
 
-class AdaptiveEnsembleClassifier:
+class AdaptiveEnsembleClassifier(BaseEstimator, ClassifierMixin):
     """
     Novel Adaptive Ensemble that dynamically weights models based on 
     their performance on different attack types and data characteristics
@@ -733,8 +734,8 @@ class AdaptiveEnsembleClassifier:
         # Meta-learner for combining predictions
         if num_classes > 2:
             # Use multinomial logistic regression with balanced class weights
+            # Note: multi_class parameter removed in sklearn 1.5+ (multinomial is automatic with lbfgs)
             self.meta_learner = LogisticRegression(
-                multi_class='multinomial',
                 solver='lbfgs',
                 class_weight='balanced',  # Handle imbalanced classes
                 max_iter=2000,
@@ -748,6 +749,11 @@ class AdaptiveEnsembleClassifier:
         self.feature_importance_weights = {}
         self.attack_type_specialists = {}
         self.hyperparameter_validation_results = {}
+        
+        # Backward elimination for classifier selection
+        self.selected_classifiers = {}  # Classifiers selected by backward elimination
+        self.eliminated_classifiers = []  # Names of eliminated classifiers
+        self.selected_classifier_names = []  # Names of selected classifiers for prediction
     
     def get_params(self, deep=True):
         """Get parameters for this estimator (required for scikit-learn compatibility)"""
@@ -787,6 +793,104 @@ class AdaptiveEnsembleClassifier:
                                     for col in X.T])
         }
         return characteristics
+    
+    def _overfitting_filter(self, X_train, y_train, X_val, y_val, max_gap=0.10):
+        """
+        Filter classifiers based on overfitting gap (Train Acc - Validation Acc).
+        
+        Classifiers with high overfitting gap are excluded from the ensemble.
+        This is data-driven and uses only training/validation data.
+        """
+        from sklearn.metrics import accuracy_score
+        
+        print(f"\n🔬 OVERFITTING-BASED CLASSIFIER SELECTION")
+        print(f"   Threshold: Exclude if (Train Acc - Val Acc) > {max_gap:.0%}")
+        print("-" * 60)
+        
+        included = []
+        eliminated = []
+        overfitting_gaps = {}
+        
+        for name, clf in self.base_classifiers.items():
+            # Get predictions
+            try:
+                train_pred = clf.predict(X_train)
+                val_pred = clf.predict(X_val)
+                
+                train_acc = accuracy_score(y_train, train_pred)
+                val_acc = accuracy_score(y_val, val_pred)
+                
+                gap = train_acc - val_acc
+                overfitting_gaps[name] = gap
+                
+                if gap <= max_gap:
+                    included.append(name)
+                    status = "✅ KEEP"
+                else:
+                    eliminated.append(name)
+                    status = "❌ REMOVE (high overfitting)"
+                
+                print(f"   {name}: Train={train_acc:.4f}, Val={val_acc:.4f}, Gap={gap:.4f} → {status}")
+                
+            except Exception as e:
+                print(f"   {name}: Error - {e} → ❌ REMOVE")
+                eliminated.append(name)
+        
+        # Store results
+        self.selected_classifiers = {name: self.base_classifiers[name] for name in included}
+        self.eliminated_classifiers = eliminated
+        self.selected_classifier_names = list(self.selected_classifiers.keys())
+        self.overfitting_gaps = overfitting_gaps
+        
+        print(f"\n📊 SELECTION COMPLETE")
+        print(f"   Selected: {len(included)} classifiers: {', '.join(included)}")
+        print(f"   Eliminated: {len(eliminated)} classifiers: {', '.join(eliminated)}")
+        
+        # Safety check: keep at least 2 classifiers
+        if len(included) < 2:
+            print(f"   ⚠️ Too few classifiers! Keeping top 2 by lowest gap")
+            sorted_by_gap = sorted(overfitting_gaps.items(), key=lambda x: x[1])
+            included = [name for name, _ in sorted_by_gap[:2]]
+            self.selected_classifiers = {name: self.base_classifiers[name] for name in included}
+            self.selected_classifier_names = list(self.selected_classifiers.keys())
+        
+        return included
+    
+    def _select_robust_classifiers(self):
+        """
+        Select classifiers based on model-type robustness.
+        
+        Tree-based ensembles (RF, ET, XGB) and instance-based (KNN) 
+        are known to be robust to class distribution shifts.
+        Linear and simple models are excluded.
+        """
+        # Classifiers robust to distribution shift
+        ROBUST_TYPES = ['rf', 'et', 'xgb', 'knn']
+        
+        print(f"\n🔬 MODEL-TYPE BASED CLASSIFIER SELECTION")
+        print("-" * 60)
+        
+        included = []
+        eliminated = []
+        
+        for name in self.base_classifiers.keys():
+            if name in ROBUST_TYPES:
+                included.append(name)
+                print(f"   {name}: ✅ KEEP (robust model type)")
+            else:
+                eliminated.append(name)
+                print(f"   {name}: ❌ REMOVE (distribution-shift sensitive)")
+        
+        # Store results
+        self.selected_classifiers = {name: self.base_classifiers[name] for name in included}
+        self.eliminated_classifiers = eliminated
+        self.selected_classifier_names = list(self.selected_classifiers.keys())
+        
+        print(f"\n📊 SELECTION COMPLETE")
+        print(f"   Selected: {len(included)} classifiers: {', '.join(included)}")
+        print(f"   Eliminated: {len(eliminated)} classifiers: {', '.join(eliminated)}")
+        
+        return included
     
     def _train_attack_specialists(self, X_raw, y, attack_types=None, classification_type='binary'):
         """
@@ -949,9 +1053,9 @@ class AdaptiveEnsembleClassifier:
                 test_auc = None
             
             # Additional validation: Cross-validation on training data only
-            # Using 5-fold CV consistent with train_improved_specialists.py and ablation_study.py
+            # Using 10-fold CV consistent with train_improved_specialists.py and ablation_study.py
             from sklearn.model_selection import StratifiedKFold
-            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
             cv_f1 = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='f1')
             cv_balanced_acc = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='balanced_accuracy')
             cv_auc = cross_val_score(specialist, X_train_selected, y_train, cv=cv, scoring='roc_auc')
@@ -1641,27 +1745,48 @@ class AdaptiveEnsembleClassifier:
             X, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # Get base predictions for validation set
-        base_pred_val = np.zeros((X_val_ratio.shape[0], len(self.base_classifiers)))
-        X_val_clean = np.nan_to_num(X_val_ratio, nan=0.0, posinf=0.0, neginf=0.0)
+        # Use selected classifiers for binary, all classifiers for multiclass
+        if classification_type == 'binary' and self.selected_classifiers:
+            classifiers_to_use = self.selected_classifiers
+            classifier_names = self.selected_classifier_names
+        else:
+            classifiers_to_use = self.base_classifiers
+            classifier_names = list(self.base_classifiers.keys())
         
-        for i, (name, clf) in enumerate(self.base_classifiers.items()):
+        # Get base predictions for validation set
+        base_pred_val = np.zeros((X_val_ratio.shape[0], len(classifiers_to_use)))
+        X_val_clean = np.nan_to_num(X_val_ratio, nan=0.0, posinf=0.0, neginf=0.0)
+        all_probas_val = []  # Store full probability matrices for multiclass
+        
+        for i, name in enumerate(classifier_names):
+            clf = classifiers_to_use[name]
             try:
                 if classification_type == 'binary':
                     base_pred_val[:, i] = clf.predict_proba(X_val_clean)[:, 1]
                 else:
                     proba = clf.predict_proba(X_val_clean)
+                    all_probas_val.append(proba)
                     base_pred_val[:, i] = np.max(proba, axis=1)
             except:
                 base_pred_val[:, i] = 0.5
+                if classification_type != 'binary':
+                    # Fallback: uniform probability distribution
+                    n_classes = getattr(self, 'num_classes', 2)
+                    all_probas_val.append(np.ones((X_val_clean.shape[0], n_classes)) / n_classes)
         
         # Get meta-learner predictions on validation set
-        meta_proba_val = self.meta_learner.predict_proba(base_pred_val)
+        if getattr(self, '_meta_uses_full_proba', False) and all_probas_val:
+            meta_input_val = np.hstack(all_probas_val)
+            meta_proba_val = self.meta_learner.predict_proba(meta_input_val)
+        else:
+            meta_proba_val = self.meta_learner.predict_proba(base_pred_val)
         
-        # Calculate weighted average
+        # Calculate weighted average using selected classifiers
         weighted_proba_val = np.zeros(X_val_ratio.shape[0])
-        total_weight = sum(self.adaptive_weights.values())
-        for i, (name, weight) in enumerate(self.adaptive_weights.items()):
+        selected_weights = {name: self.adaptive_weights.get(name, 1.0) for name in classifier_names}
+        total_weight = sum(selected_weights.values())
+        for i, name in enumerate(classifier_names):
+            weight = selected_weights[name]
             weighted_proba_val += (weight / total_weight) * base_pred_val[:, i]
         
         # Test different mixing ratios
@@ -1801,19 +1926,25 @@ class AdaptiveEnsembleClassifier:
                     print(f"      🔄 Training fresh {name}...")
                     # Fall through to training
                 else:
-                    # Successfully loaded, get predictions and continue
+                    # Successfully loaded, get OOF predictions for meta-learner
+                    from sklearn.model_selection import cross_val_predict, StratifiedKFold
                     try:
+                        cv_oof = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
                         if self.num_classes == 2:
-                            proba = clf.predict_proba(X)
-                            if proba.shape[1] >= 2:
-                                base_predictions[:, i] = proba[:, 1]
-                            else:
-                                base_predictions[:, i] = proba[:, 0]
+                            oof_proba = cross_val_predict(clf, X, y, cv=cv_oof, method='predict_proba', n_jobs=1)
+                            base_predictions[:, i] = oof_proba[:, 1] if oof_proba.shape[1] >= 2 else oof_proba[:, 0]
                         else:
-                            proba = clf.predict_proba(X)
-                            base_predictions[:, i] = np.max(proba, axis=1)
+                            # Multiclass: use FULL probability vectors for meta-learner
+                            oof_proba = cross_val_predict(clf, X, y, cv=cv_oof, method='predict_proba', n_jobs=1)
+                            # Store full probability matrix for later flattening
+                            if not hasattr(self, '_multiclass_oof_probas'):
+                                self._multiclass_oof_probas = []
+                            self._multiclass_oof_probas.append(oof_proba)
+                            # Keep max for backward compatibility with weighted average
+                            base_predictions[:, i] = np.max(oof_proba, axis=1)
+                        print(f"      ✅ OOF predictions collected for cached {name}")
                     except Exception as e:
-                        print(f"      ⚠️  Error getting predictions from cached {name}: {e}")
+                        print(f"      ⚠️  Error getting OOF predictions from cached {name}: {e}")
                         base_predictions[:, i] = 0.5
                         if not hasattr(self, 'fallback_count'):
                             self.fallback_count = {}
@@ -1825,7 +1956,7 @@ class AdaptiveEnsembleClassifier:
             print(f"   🔄 Training {name}...")
             
             # PROPER NESTED CV: Feature engineering within each fold to prevent leakage
-            cv_scores = self._nested_cross_validation(clf, X, y, cv_folds=5)
+            cv_scores = self._nested_cross_validation(clf, X, y, cv_folds=10)
             # This ensures no information leakage between CV folds
             
             # Fit on full data (with SVM sample limiting for performance)
@@ -1889,20 +2020,26 @@ class AdaptiveEnsembleClassifier:
                 except Exception as e:
                     print(f"      ⚠️  Could not generate confusion matrix: {e}")
             
-            # Store predictions for meta-learning
+            # CRITICAL: Collect OUT-OF-FOLD predictions for meta-learner (prevents data leakage)
+            from sklearn.model_selection import cross_val_predict, StratifiedKFold
+            print(f"      🔄 Collecting out-of-fold predictions...")
             try:
+                cv_oof = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
                 if self.num_classes == 2:
-                    proba = clf.predict_proba(X)
-                    if proba.shape[1] >= 2:
-                        base_predictions[:, i] = proba[:, 1]
-                    else:
-                        base_predictions[:, i] = proba[:, 0]
+                    oof_proba = cross_val_predict(clf, X, y, cv=cv_oof, method='predict_proba', n_jobs=1)
+                    base_predictions[:, i] = oof_proba[:, 1] if oof_proba.shape[1] >= 2 else oof_proba[:, 0]
                 else:
-                    # Multiclass: use max probability as confidence measure for meta-learner
-                    proba = clf.predict_proba(X)
-                    base_predictions[:, i] = np.max(proba, axis=1)
+                    # Multiclass: use FULL probability vectors for meta-learner
+                    oof_proba = cross_val_predict(clf, X, y, cv=cv_oof, method='predict_proba', n_jobs=1)
+                    # Store full probability matrix for later flattening
+                    if not hasattr(self, '_multiclass_oof_probas'):
+                        self._multiclass_oof_probas = []
+                    self._multiclass_oof_probas.append(oof_proba)
+                    # Keep max for backward compatibility with weighted average
+                    base_predictions[:, i] = np.max(oof_proba, axis=1)
+                print(f"      ✅ OOF predictions collected (no data leakage)")
             except Exception as e:
-                print(f"      ⚠️  Error storing predictions for {name}: {e}")
+                print(f"      ⚠️  Error collecting OOF predictions for {name}: {e}")
                 try:
                     if hasattr(clf, 'decision_function'):
                         scores = clf.decision_function(X)
@@ -1944,17 +2081,71 @@ class AdaptiveEnsembleClassifier:
             except Exception as e:
                 print(f"      ⚠️  Failed to cache {name}: {e}")
         
-        # Train meta-learner
-        print("🧠 Training meta-learner...")
-        self.meta_learner.fit(base_predictions, y)
+        # BACKWARD ELIMINATION: Select optimal classifier subset (binary mode only)
+        if self.num_classes == 2:
+            # Split for validation (same split as mixing ratio optimization)
+            from sklearn.model_selection import train_test_split
+            X_train_split, X_val_split, y_train_split, y_val_split = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y
+            )
+            
+            # Get base predictions for train and validation splits
+            base_predictions_train = np.zeros((len(X_train_split), len(self.base_classifiers)))
+            base_predictions_val = np.zeros((len(X_val_split), len(self.base_classifiers)))
+            
+            for i, (name, clf) in enumerate(self.base_classifiers.items()):
+                try:
+                    # For X_train_split, use OOF predictions to prevent data leakage
+                    from sklearn.model_selection import cross_val_predict, StratifiedKFold
+                    cv_oof = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+                    oof_train = cross_val_predict(clf, X_train_split, y_train_split, cv=cv_oof, method='predict_proba')
+                    base_predictions_train[:, i] = oof_train[:, 1]
+                    # X_val_split remains as-is (already held-out)
+                    base_predictions_val[:, i] = clf.predict_proba(X_val_split)[:, 1]
+                except:
+                    base_predictions_train[:, i] = 0.5
+                    base_predictions_val[:, i] = 0.5
+            
+            # Model-type based classifier selection
+            selected_names = self._select_robust_classifiers()
+            
+            # Filter base_predictions to selected classifiers only
+            selected_indices = [i for i, name in enumerate(self.base_classifiers.keys()) 
+                                if name in self.selected_classifiers]
+            base_predictions_selected = base_predictions[:, selected_indices]
+            
+            print(f"   📊 Meta-learner input: {len(self.selected_classifier_names)} classifiers (was {len(self.base_classifiers)})")
+            
+            # Train meta-learner on SELECTED classifiers only
+            print("🧠 Training meta-learner on selected classifiers...")
+            self.meta_learner.fit(base_predictions_selected, y)
+        else:
+            # Multiclass: use all classifiers with FULL probability vectors
+            self.selected_classifiers = self.base_classifiers.copy()
+            self.selected_classifier_names = list(self.base_classifiers.keys())
+            self.eliminated_classifiers = []
+            
+            # Train meta-learner on FLATTENED probability vectors
+            print("🧠 Training meta-learner on full probability vectors...")
+            if hasattr(self, '_multiclass_oof_probas') and self._multiclass_oof_probas:
+                # Flatten: (n_samples, n_classifiers * n_classes)
+                meta_input = np.hstack(self._multiclass_oof_probas)
+                print(f"   Meta-learner input shape: {meta_input.shape}")
+                self.meta_learner.fit(meta_input, y)
+                self._meta_uses_full_proba = True
+            else:
+                # Fallback to max probabilities
+                self.meta_learner.fit(base_predictions, y)
+                self._meta_uses_full_proba = False
         
         # CRITICAL: Perform CV on ensemble to get proper CV scores for statistical testing
         print("🔬 Performing ensemble cross-validation...")
         from sklearn.model_selection import cross_val_score, StratifiedKFold
         try:
-            cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-            # CV on the meta-learner using base predictions
-            ensemble_cv_scores = cross_val_score(self.meta_learner, base_predictions, y, cv=cv, scoring='accuracy')
+            cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+            # CV on the meta-learner using base predictions (selected for binary, all for multiclass)
+            cv_preds = base_predictions_selected if self.num_classes == 2 else base_predictions
+            ensemble_cv_scores = cross_val_score(self.meta_learner, cv_preds, y, cv=cv, scoring='accuracy')
             self.ensemble_cv_scores = ensemble_cv_scores
             print(f"   ✅ Ensemble CV: {np.mean(ensemble_cv_scores):.4f} ± {np.std(ensemble_cv_scores):.4f}")
         except Exception as e:
@@ -1963,7 +2154,8 @@ class AdaptiveEnsembleClassifier:
         
         # Optimize mixing ratio on validation set
         print("🔬 Optimizing meta-learner mixing ratio...")
-        self.optimal_mixing_ratio = self._optimize_mixing_ratio(X, y, base_predictions, classification_type)
+        mix_preds = base_predictions_selected if self.num_classes == 2 else base_predictions
+        self.optimal_mixing_ratio = self._optimize_mixing_ratio(X, y, mix_preds, classification_type)
         
         # Train attack type specialists - ONLY in binary mode
         if classification_type == 'binary':
@@ -2077,7 +2269,7 @@ class AdaptiveEnsembleClassifier:
         
         return individual_test_performance, ensemble_accuracy
     
-    def _nested_cross_validation(self, clf, X, y, cv_folds=5):
+    def _nested_cross_validation(self, clf, X, y, cv_folds=10):
         """
         Proper nested cross-validation that prevents feature engineering leakage
         Uses standard CV since feature engineering is already properly isolated
@@ -2111,16 +2303,21 @@ class AdaptiveEnsembleClassifier:
             return np.array([fallback_score] * cv_folds)  # Return consistent array
     
     def predict_proba(self, X):
-        """Predict probabilities using adaptive ensemble"""
+        """Predict probabilities using adaptive ensemble with selected classifiers"""
         # Get base classifier predictions
         if self.num_classes == 2:
-            # Binary classification
-            base_predictions = np.zeros((X.shape[0], len(self.base_classifiers)))
+            # Binary classification - use SELECTED classifiers only
+            # Fallback to all classifiers if backward elimination wasn't run
+            classifiers_to_use = self.selected_classifiers if self.selected_classifiers else self.base_classifiers
+            classifier_names = self.selected_classifier_names if self.selected_classifier_names else list(self.base_classifiers.keys())
+            
+            base_predictions = np.zeros((X.shape[0], len(classifiers_to_use)))
             
             # Clean input data first
             X_clean = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
             
-            for i, (name, clf) in enumerate(self.base_classifiers.items()):
+            for i, name in enumerate(classifier_names):
+                clf = classifiers_to_use[name]
                 try:
                     proba_temp = clf.predict_proba(X_clean)
                     base_predictions[:, i] = proba_temp[:, 1]
@@ -2153,14 +2350,17 @@ class AdaptiveEnsembleClassifier:
                     print(f"⚠️  Model {name} predict_proba failed: {e}")
                     base_predictions[:, i] = 0.5  # Neutral prediction
             
-            # Meta-learner prediction
+            # Meta-learner prediction (trained on selected classifiers)
             meta_proba = self.meta_learner.predict_proba(base_predictions)
             
-            # Adaptive weighted combination
+            # Adaptive weighted combination using SELECTED classifiers only
             weighted_proba = np.zeros(X.shape[0])
-            total_weight = sum(self.adaptive_weights.values())
+            selected_weights = {name: self.adaptive_weights.get(name, 1.0) 
+                               for name in classifier_names}
+            total_weight = sum(selected_weights.values())
             
-            for i, (name, weight) in enumerate(self.adaptive_weights.items()):
+            for i, name in enumerate(classifier_names):
+                weight = selected_weights[name]
                 weighted_proba += (weight / total_weight) * base_predictions[:, i]
             
             # Combine meta-learner and weighted predictions using optimal ratio
@@ -2172,6 +2372,7 @@ class AdaptiveEnsembleClassifier:
             # DEBUG: Report which ratio is being used (only once)
             if not hasattr(self, '_ratio_reported'):
                 print(f"\n🔬 Using mixing ratio: {mixing_ratio:.1f} for predictions")
+                print(f"   📊 Using {len(classifier_names)} selected classifiers: {', '.join(classifier_names)}")
                 self._ratio_reported = True
             
             final_proba = mixing_ratio * meta_proba[:, 1] + (1 - mixing_ratio) * weighted_proba
@@ -2179,7 +2380,7 @@ class AdaptiveEnsembleClassifier:
             # Report fallback usage if any occurred
             if hasattr(self, 'fallback_count') and self.fallback_count:
                 total_fallbacks = sum(self.fallback_count.values())
-                total_predictions = X.shape[0] * len(self.base_classifiers)
+                total_predictions = X.shape[0] * len(classifiers_to_use)
                 fallback_pct = (total_fallbacks / total_predictions) * 100
                 if fallback_pct > 1.0:  # Only warn if >1% fallbacks
                     print(f"\n⚠️  FALLBACK USAGE SUMMARY:")
@@ -2216,9 +2417,14 @@ class AdaptiveEnsembleClassifier:
                     all_probas.append(uniform_proba)
                     base_predictions[:, i] = 1.0 / self.num_classes  # Neutral confidence
             
-            # Meta-learner prediction using base predictions (max probabilities)
-            # Shape: (n_samples, n_classifiers) - one confidence value per classifier
-            meta_proba = self.meta_learner.predict_proba(base_predictions)
+            # Meta-learner prediction using full probability vectors if trained that way
+            if getattr(self, '_meta_uses_full_proba', False):
+                # Flatten all_probas: (n_samples, n_classifiers * n_classes)
+                meta_input = np.hstack(all_probas)
+                meta_proba = self.meta_learner.predict_proba(meta_input)
+            else:
+                # Fallback to max probabilities
+                meta_proba = self.meta_learner.predict_proba(base_predictions)
             
             # Adaptive weighted combination of probability matrices
             weighted_proba = np.zeros((X.shape[0], self.num_classes))
@@ -2522,7 +2728,7 @@ class AdaptiveEnsembleClassifier:
             print("   📦 XGBoost not available - skipping")
         
         # Evaluate each baseline
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
         
         for name, model in standard_baselines.items():
             try:
@@ -3156,9 +3362,18 @@ class NovelEnsembleMLSystem:
                     # Get the selected features
                     X_selected = X_scaled[:, self.selected_feature_indices]
                     
+                    # Use selected classifiers for binary, all classifiers for multiclass
+                    if self.classification_type == 'binary' and self.classifier.selected_classifiers:
+                        classifiers_to_use = self.classifier.selected_classifiers
+                        classifier_names = self.classifier.selected_classifier_names
+                    else:
+                        classifiers_to_use = self.classifier.base_classifiers
+                        classifier_names = list(self.classifier.base_classifiers.keys())
+                    
                     # Get base predictions for mixing ratio optimization
-                    base_predictions = np.zeros((X_selected.shape[0], len(self.classifier.base_classifiers)))
-                    for i, (name, clf) in enumerate(self.classifier.base_classifiers.items()):
+                    base_predictions = np.zeros((X_selected.shape[0], len(classifiers_to_use)))
+                    for i, name in enumerate(classifier_names):
+                        clf = classifiers_to_use[name]
                         try:
                             if self.classification_type == 'binary':
                                 proba = clf.predict_proba(X_selected)

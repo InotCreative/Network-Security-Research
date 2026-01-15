@@ -7,7 +7,7 @@ Architecture matches the main binary ensemble exactly:
 2. Full 23-feature engineering pipeline
 3. 4-method consensus feature selection
 4. SMOTE only for extreme imbalance (ratio > 20:1)
-5. GradientBoostingClassifier with imbalance-aware hyperparameters
+5. ExtraTreesClassifier with imbalance-aware hyperparameters
 6. Comprehensive evaluation with overfitting analysis
 """
 
@@ -18,7 +18,7 @@ from sklearn.preprocessing import RobustScaler, LabelEncoder
 from sklearn.metrics import (f1_score, balanced_accuracy_score, precision_score, 
                             recall_score, accuracy_score, roc_auc_score)
 from sklearn.feature_selection import SelectKBest, f_classif, mutual_info_classif, RFE
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.linear_model import SGDClassifier
 from imblearn.over_sampling import SMOTE
 from collections import defaultdict
@@ -28,6 +28,31 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from novel_ensemble_ml import DynamicFeatureEngineer
+
+
+# Feature category definitions for grouped output
+ENGINEERED_FEATURES = {
+    'statistical': [
+        'total_bytes', 'total_packets', 'packet_ratio', 'avg_packet_size',
+        'log_duration', 'log_total_bytes', 'throughput', 'log_throughput'
+    ],
+    'duration': [
+        'is_short_connection', 'is_long_connection', 'duration_bin',
+        'time_of_day', 'is_business_hours'
+    ],
+    'network_behavior': [
+        'total_loss', 'loss_ratio', 'window_ratio', 'min_window', 
+        'max_window', 'has_jitter', 'jitter_category', 'latency_ratio', 'has_loss'
+    ],
+    'interaction': [
+        'proto_service_encoded', 'state_proto_encoded'
+    ]
+}
+
+# Flatten for easy lookup
+ALL_ENGINEERED = set()
+for features in ENGINEERED_FEATURES.values():
+    ALL_ENGINEERED.update(features)
 
 
 class ConsensusFeatureSelector:
@@ -48,6 +73,8 @@ class ConsensusFeatureSelector:
         self.selected_indices = None
         self.method_scores = {}
         self.feature_scores = None
+        self.selected_feature_names = None
+        self.grouped_features = None
         
     def _find_optimal_k(self, X, y):
         """Find optimal number of features using validation accuracy."""
@@ -159,7 +186,11 @@ class ConsensusFeatureSelector:
         self.selected_indices = [idx for idx, score in sorted_features[:self.n_features]]
         self.feature_scores = dict(sorted_features)
         
+        # Store selected feature names
+        self.selected_feature_names = [feature_names[i] for i in self.selected_indices]
+        
         print(f"      ✅ Selected {len(self.selected_indices)} features by consensus")
+        print(f"      📊 Selected features: {self.selected_feature_names}")
         
         return X[:, self.selected_indices], self.selected_indices
     
@@ -168,6 +199,66 @@ class ConsensusFeatureSelector:
         if self.selected_indices is None:
             raise ValueError("Must call fit_transform first!")
         return X[:, self.selected_indices]
+
+    def _group_features_by_category(self, feature_names, selected_indices, feature_scores):
+        """Group selected features by category."""
+        selected_names = [feature_names[i] for i in selected_indices]
+        
+        grouped = {
+            'engineered': {
+                'statistical': [],
+                'duration': [],
+                'network_behavior': [],
+                'interaction': []
+            },
+            'original': []
+        }
+        
+        for name in selected_names:
+            score = feature_scores.get(selected_indices[selected_names.index(name)], 0)
+            entry = {'name': name, 'score': score}
+            
+            # Check which category
+            found = False
+            for category, features in ENGINEERED_FEATURES.items():
+                if name in features:
+                    grouped['engineered'][category].append(entry)
+                    found = True
+                    break
+            
+            if not found:
+                grouped['original'].append(entry)
+        
+        # Sort each group by score
+        for category in grouped['engineered']:
+            grouped['engineered'][category].sort(key=lambda x: x['score'], reverse=True)
+        grouped['original'].sort(key=lambda x: x['score'], reverse=True)
+        
+        return grouped
+
+    def _print_grouped_features(self, attack_name, grouped):
+        """Print features grouped by category."""
+        total = sum(len(grouped['engineered'][c]) for c in grouped['engineered']) + len(grouped['original'])
+        
+        print(f"\n📋 SELECTED FEATURES FOR {attack_name} ({total} features):")
+        print("=" * 60)
+        
+        # Engineered features
+        eng_total = sum(len(grouped['engineered'][c]) for c in grouped['engineered'])
+        print(f"\n📊 ENGINEERED FEATURES ({eng_total}):")
+        
+        for category, features in grouped['engineered'].items():
+            if features:
+                print(f"   {category.replace('_', ' ').title()} ({len(features)}):")
+                for f in features:
+                    print(f"    - {f['name']:<30} (score: {f['score']:.3f})")
+        
+        # Original features
+        print(f"\n📊 ORIGINAL FEATURES ({len(grouped['original'])}):")
+        for f in grouped['original']:
+            print(f"    - {f['name']:<30} (score: {f['score']:.3f})")
+        
+        print("=" * 60)
 
 
 class SpecificationCompliantSpecialistTrainer:
@@ -178,7 +269,7 @@ class SpecificationCompliantSpecialistTrainer:
     - 70/30 train-test split (was 80/20)
     - 4-method consensus feature selection (was SelectKBest only)
     - SMOTE only for ratio > 20:1 (was ratio > 2)
-    - GradientBoostingClassifier (was XGBoost)
+    - ExtraTreesClassifier (robust to distribution shift)
     - No optimal threshold (use default 0.5)
     
     Comparison mode:
@@ -236,39 +327,39 @@ class SpecificationCompliantSpecialistTrainer:
 
     
     def _get_hyperparameters(self, imbalance_ratio):
-        """Get GradientBoostingClassifier hyperparameters based on imbalance ratio."""
+        """Get ExtraTreesClassifier hyperparameters based on imbalance ratio."""
         if imbalance_ratio > 100:
             # Extreme imbalance
             return {
-                'n_estimators': 100,
-                'max_depth': 5,
-                'learning_rate': 0.05,
+                'n_estimators': 200,
+                'max_depth': 10,
                 'min_samples_split': 20,
                 'min_samples_leaf': 10,
-                'subsample': 0.8,
-                'random_state': 42
+                'class_weight': 'balanced',
+                'random_state': 42,
+                'n_jobs': -1
             }
         elif imbalance_ratio > 20:
             # High imbalance
             return {
-                'n_estimators': 150,
-                'max_depth': 6,
-                'learning_rate': 0.08,
-                'min_samples_split': 15,
-                'min_samples_leaf': 8,
-                'subsample': 0.85,
-                'random_state': 42
+                'n_estimators': 200,
+                'max_depth': 15,
+                'min_samples_split': 10,
+                'min_samples_leaf': 5,
+                'class_weight': 'balanced',
+                'random_state': 42,
+                'n_jobs': -1
             }
         else:
             # Moderate imbalance
             return {
                 'n_estimators': 200,
-                'max_depth': 7,
-                'learning_rate': 0.1,
-                'min_samples_split': 10,
-                'min_samples_leaf': 5,
-                'subsample': 1.0,
-                'random_state': 42
+                'max_depth': None,  # Full depth for ET
+                'min_samples_split': 5,
+                'min_samples_leaf': 2,
+                'class_weight': 'balanced',
+                'random_state': 42,
+                'n_jobs': -1
             }
     
     def train_specialist(self, attack_name, X_raw, y_binary):
@@ -282,7 +373,7 @@ class SpecificationCompliantSpecialistTrainer:
         4. RobustScaler (fit on train only)
         5. 4-method consensus feature selection
         6. SMOTE if ratio > 20:1 (train only)
-        7. GradientBoostingClassifier with imbalance-aware hyperparameters
+        7. ExtraTreesClassifier with imbalance-aware hyperparameters
         8. Evaluation on held-out test set
         """
         print(f"\n{'='*80}")
@@ -346,6 +437,10 @@ class SpecificationCompliantSpecialistTrainer:
         X_test_selected = feature_selector.transform(X_test_scaled)
         print(f"   Selected: {X_train_selected.shape[1]} features")
         
+        # Group and print selected features by category
+        grouped = feature_selector._group_features_by_category(eng_feature_names, selected_indices, feature_selector.feature_scores)
+        feature_selector._print_grouped_features(attack_name, grouped)
+        
         # STEP 5: SMOTE (only if ratio > 20:1 AND use_smote=True)
         print(f"\n5️⃣ SMOTE (conditional)...")
         used_smote = False
@@ -378,20 +473,20 @@ class SpecificationCompliantSpecialistTrainer:
             X_train_resampled = X_train_selected
             y_train_resampled = y_train
         
-        # STEP 6: Train GradientBoostingClassifier
-        print(f"\n6️⃣ Training GradientBoostingClassifier...")
+        # STEP 6: Train ExtraTreesClassifier
+        print(f"\n6️⃣ Training ExtraTreesClassifier...")
         hyperparams = self._get_hyperparameters(imbalance_ratio)
         print(f"   Hyperparameters (imbalance={imbalance_ratio:.1f}:1):")
         for k, v in hyperparams.items():
             print(f"      {k}: {v}")
         
-        model = GradientBoostingClassifier(**hyperparams)
+        model = ExtraTreesClassifier(**hyperparams)
         model.fit(X_train_resampled, y_train_resampled)
         print(f"   ✅ Model trained")
         
         # STEP 7: Cross-Validation (on original training data, not SMOTE'd)
-        print(f"\n7️⃣ Cross-Validation (5-fold on original training data)...")
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        print(f"\n7️⃣ Cross-Validation (10-fold on original training data)...")
+        cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
         
         cv_f1 = cross_val_score(model, X_train_selected, y_train, cv=cv, scoring='f1')
         cv_balanced_acc = cross_val_score(model, X_train_selected, y_train, cv=cv, scoring='balanced_accuracy')
@@ -479,7 +574,7 @@ class SpecificationCompliantSpecialistTrainer:
         print("  • Full 23-feature engineering")
         print("  • 4-method consensus feature selection")
         print(f"  • SMOTE: {'ENABLED (ratio > 20:1)' if self.use_smote else 'DISABLED (--no-smote)'}")
-        print("  • GradientBoostingClassifier")
+        print("  • ExtraTreesClassifier")
         print("="*80)
         
         # Load data
@@ -587,10 +682,10 @@ def main():
         print("")
         print("Examples:")
         print("  # With SMOTE (default, applies for ratio > 20:1):")
-        print("  python train_improved_specialists.py UNSW_balanced_train.csv UNSW_balanced_test.csv")
+        print("  python train_improved_specialists.py preprocessed_train.csv preprocessed_test.csv")
         print("")
         print("  # Without SMOTE (for comparison):")
-        print("  python train_improved_specialists.py UNSW_balanced_train.csv UNSW_balanced_test.csv --no-smote")
+        print("  python train_improved_specialists.py preprocessed_train.csv preprocessed_test.csv --no-smote")
         sys.exit(1)
     
     train_csv = sys.argv[1]

@@ -348,12 +348,12 @@ def main():
     
     # Determine dataset
     if args.dataset is None:
-        # Use balanced dataset if available, otherwise require user to specify
-        if os.path.exists('UNSW_balanced_train.csv'):
-            csv_path = 'UNSW_balanced_train.csv'
-            print("📊 Using balanced UNSW dataset: UNSW_balanced_train.csv")
+        # Use preprocessed dataset if available, otherwise require user to specify
+        if os.path.exists('preprocessed_train.csv'):
+            csv_path = 'preprocessed_train.csv'
+            print("📊 Using preprocessed UNSW dataset: preprocessed_train.csv")
         else:
-            print("❌ No dataset specified and UNSW_balanced_train.csv not found")
+            print("❌ No dataset specified and preprocessed_train.csv not found")
             print("   Run: python create_balanced_split.py first")
             sys.exit(1)
     else:
