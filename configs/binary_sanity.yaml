@@ -1,0 +1,28 @@
+# Binary classification sanity check
+# Should produce reasonable detection rates before multiclass is finalised.
+
+task: binary
+global_seed: 42
+
+train_path: data/UNSW_NB15_training-set.csv
+test_path: data/UNSW_NB15_testing-set.csv
+
+artifact_dir: artifacts
+reports_dir: reports
+
+n_outer_folds: 3
+n_oof_splits: 5
+n_inner_folds: 3
+
+k_grid: [16, 24, 36, 50]
+
+gate_model: ridge
+
+ablation:
+  no_calibration: false
+  no_gate: false
+  no_feature_selection: false
+  no_engineered_features: false
+  simplified_meta_features: false
+  no_stability_weighting: false
+  fixed_beta: null

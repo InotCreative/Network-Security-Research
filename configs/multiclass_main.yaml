@@ -1,0 +1,34 @@
+# Main multiclass experiment configuration
+# Primary paper result: gated ensemble vs. plain stacking vs. baselines
+
+task: multiclass
+global_seed: 42
+
+# Data paths (relative to repo root)
+train_path: data/UNSW_NB15_training-set.csv
+test_path: data/UNSW_NB15_testing-set.csv
+
+# Output directories (run_id subdirectory appended automatically)
+artifact_dir: artifacts
+reports_dir: reports
+
+# Cross-validation
+n_outer_folds: 5          # outer CV folds on training set
+n_oof_splits: 7           # inner OOF splits for base model calibration (more → better calibration)
+n_inner_folds: 3          # inner CV folds for consensus selection
+
+# Feature selection (include 57/60 to allow full feature set as a candidate)
+k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 57, 60]
+
+# Gate model: 'ridge' | 'tree' | 'auto'
+gate_model: auto
+
+# Ablation flags (all false for the main experiment)
+ablation:
+  no_calibration: false
+  no_gate: false
+  no_feature_selection: false
+  no_engineered_features: false
+  simplified_meta_features: false
+  no_stability_weighting: false
+  fixed_beta: null           # set to float (e.g. 0.5) to test fixed mixing

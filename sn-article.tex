@@ -1,0 +1,754 @@
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{biblatex}
+\usepackage{booktabs}
+\usepackage{float}
+
+\addbibresource{sn-bibliography.bib}
+
+
+%% as per the requirement new theorem styles can be included as shown below
+\theoremstyle{thmstyleone}%
+\newtheorem{theorem}{Theorem}%  meant for continuous numbers
+%%\newtheorem{theorem}{Theorem}[section]% meant for sectionwise numbers
+%% optional argument [theorem] produces theorem numbering sequence instead of independent numbers for Proposition
+\newtheorem{proposition}[theorem]{Proposition}% 
+%%\newtheorem{proposition}{Proposition}% to get separate numbers for theorem and proposition etc.
+
+\theoremstyle{thmstyletwo}%
+\newtheorem{example}{Example}%
+\newtheorem{remark}{Remark}%
+
+\theoremstyle{thmstylethree}%
+\newtheorem{definition}{Definition}%
+
+\raggedbottom
+%%\unnumbered% uncomment this for unnumbered level heads
+
+\begin{document}
+
+\title[Article Title]{Consensus Feature Selection and Ensemble Learning with Domain-Engineered Flow Features for Intrusion Detection on UNSW-NB15}
+
+
+\abstract{Network intrusion detection systems are often evaluated on static benchmarks, despite performance being highly sensitive to feature construction, selection, and class imbalance. This study presents a flow-based intrusion detection framework evaluated on the UNSW-NB15 dataset that integrates domain-informed feature engineering, consensus-based feature selection, and ensemble learning. Twenty-three engineered flow features capture volumetric asymmetry, protocol–state interactions, and traffic behavior patterns at the network level. Feature selection aggregates statistical and model-based criteria to identify discriminative feature subsets. For binary detection (Normal vs. Attack), a single Extra Trees classifier achieves 93.24\% test accuracy and 0.9803 AUC, outperforming a stacked ensemble (91.12\% accuracy, 0.9736 AUC), indicating limited benefit from added ensembling complexity. For multiclass classification under severe class imbalance, XGBoost provides the strongest trade-off between overall accuracy (77.02\%) and minority-class performance (0.4948 macro F1), while stacking does not improve upon the best single model. Attack-specific specialist models achieve near-perfect detection for frequent attack categories but exhibit pronounced precision–recall trade-offs for rare classes despite selective oversampling. Ablation experiments show that unfiltered feature augmentation can degrade detection performance, whereas consensus-based feature selection mitigates this effect in binary classification but offers limited gains for multiclass discrimination. Cross-dataset evaluation from UNSW-NB15 to BoT-IoT results in a collapse in performance, indicating learned representations do not transfer without explicit domain adaptation.}
+
+\keywords{Machine Learning, Ensemble Models, Network Security, Feature Engineering, Feature Selection, Cybersecurity, Attack Detection, Adaptive Learning,  and Meta-Learning}
+
+\maketitle
+
+\section{Introduction}\label{Introduction}
+Modern network infrastructures face increasing scale and heterogeneity, placing growing demands on network intrusion detection systems (NIDS) deployed within operational network and systems management pipelines. In practice, NIDS must achieve high detection accuracy while remaining reliable under evolving traffic patterns and severe class imbalance, yet their performance often degrades when traffic characteristics differ from those observed during training. While machine learning-based NIDS have become widely adopted due to strong benchmark results, their effectiveness remains highly sensitive to feature representation.
+
+Although the UNSW-NB15 dataset was introduced to address limitations of earlier benchmarks such as KDD99 and NSL-KDD and is now widely used, reported performance varies substantially across studies, raising concerns about feature stability, selection bias, and reproducibility.
+
+Two persistent gaps emerge in prior NIDS research using UNSW-NB15 and related datasets. First, many studies rely primarily on dataset-provided attributes or loosely motivated transformations, rather than systematically deriving flow-level features grounded in observable network behavior. Second, feature selection is often performed using a single criterion, such as univariate statistics or model-specific importance scores, which can produce unstable feature subsets sensitive to sampling variation and class imbalance.
+
+In parallel, ensemble learning has become a common strategy in NIDS research under the assumption that combining multiple classifiers improves detection performance. While ensemble models frequently achieve strong benchmark results, they introduce additional complexity and operational trade-offs, and it remains unclear whether such complexity provides consistent benefit once feature representations are carefully engineered and selected.
+
+This paper presents a systematic study of feature engineering, feature selection, and ensemble model complexity for intrusion detection on the UNSW-NB15 dataset. We propose a consensus-based feature selection framework that determines an appropriate feature dimensionality and identifies informative subsets. To isolate the contribution of feature engineering, feature selection, and ensembling, we conduct controlled component-level comparisons. Using this framework, we evaluate binary intrusion detection, multiclass attack classification, and attack-specific models, explicitly comparing individual classifiers with stacked ensemble architectures. In addition, we assess cross-dataset generalization by training on UNSW-NB15 and testing on BoT-IoT.
+
+\section{Related Works}\label{Related_Works}
+Machine learning-based network intrusion detection systems (NIDS) have been extensively studied using classical classifiers such as Decision Trees, Random Forests, Support Vector Machines, and Gradient Boosting models, as well as ensemble learning approaches that combine multiple learners to improve robustness and accuracy~\cite{Moustafa04042016, Iglesias2015, Mhawi14071461, Amanoul9495897, Tharmini8001537}. Across many studies, tree-based classifiers consistently demonstrate strong performance due to their ability to model non-linear interactions and heterogeneous traffic patterns common in network data.
+
+Several works have evaluated these models on the UNSW-NB15 dataset, reporting high detection accuracy under controlled experimental settings. For example, Dhanya et al.~\cite{Dhanya202357} compared individual classifiers and ensemble methods on UNSW-NB15 and reported strong performance for Decision Trees relative to more complex ensembles. However, such results are often achieved without addressing severe class imbalance or examining feature stability, limiting conclusions about robustness across attack categories. Similar limitations appear in studies that apply ensemble or deep learning models to legacy datasets such as KDD99, where outdated traffic patterns further constrain generalizability \cite{Amanoul9495897}.
+
+Feature selection has been widely recognized as a critical component of NIDS performance. Prior work demonstrates that reducing dimensionality can improve accuracy while lowering false alarm rates and computational cost \cite{Venkatachalam}. In the context of UNSW-NB15, recursive feature elimination and tree-based importance measures have been used to identify small subsets of highly discriminative features \cite{Venkatachalam, Tharmini8001537}. While effective within specific experimental setups, these approaches typically rely on a single selection criterion, making the resulting feature subsets sensitive to sampling variation and classifier choice. Such instability complicates reproducibility and undermines confidence in deployment-oriented conclusions.
+
+Feature engineering remains comparatively underexplored. Many studies rely primarily on the original dataset schema, applying limited transformations or selecting subsets of predefined attributes. As noted by Tharmini et al.~\cite{Tharmini8001537}, eliminating redundant attributes can improve classification performance, but this approach does not introduce new representations that capture flow-level behavior observed in operational networks. Prior surveys highlight that attacks often manifest through directional asymmetry, protocol misuse, temporal extremes, and congestion-related effects that are not explicitly encoded in static dataset features \cite{Sarhan10_1007, RING2019147}. The absence of domain-driven feature construction limits interpretability and may contribute to inconsistent performance across studies.
+
+Recent work has begun to emphasize robustness and generalization as central challenges for NIDS. Ring et al.~\cite{RING2019147} and Sarhan et al.~\cite{Sarhan10_1007} demonstrate that models trained on a single dataset frequently fail when applied to traffic from different network environments. This domain shift problem is particularly pronounced when datasets capture fundamentally different traffic characteristics, such as enterprise networks versus IoT botnet traffic. Despite this recognition, most UNSW-NB15-based studies continue to evaluate models exclusively within-dataset, providing limited insight into real-world deployment behavior.
+
+Taken together, the literature reveals three unresolved issues. First, feature representations are often weakly grounded in observable network behavior, limiting interpretability and robustness. Second, feature selection is commonly performed using a single criterion, producing unstable subsets that may not generalize beyond the training distribution. Third, model complexity is frequently increased through ensembling without clear evidence that such complexity improves robustness once feature representation is optimized.
+
+\section{Dataset Description}
+This study employs the UNSW-NB15 dataset, developed by the Cyber Range Lab of the Australian Center for Cyber Security (ACCS). Each network flow in the dataset is described by 49 original features and labeled as either benign or belonging to one of the nine attack categories–Analysis, Backdoor, DoS, Exploits, Fuzzers, Generic, Reconnaissance, Shellcode and Worms–thereby  providing a multi-class intrusion detection setting. The dataset exhibits missing values and a highly imbalanced class distribution, with a rare attack type such as Worms accounting for approximately 0.1\% of the total observations.
+
+\section{Methods}\label{Methods}
+\subsection{Feature Engineering}
+Network Intrusion Detection Systems (NIDS) aim to identify anomalous traffic behavior, as different attack classes produce distinct statistical signatures. Prior flow-based IDS studies demonstrate that malicious activity manifests as heterogeneous deviations across volumetric, temporal, and protocol-level features rather than being confined to a single feature dimension \cite{KIFLAY2024100349, luay2025temporalanalysisnetflowdatasets}. To capture these patterns, twenty-three features are engineered from raw network traffic.
+
+In attack environments, network traffic frequently exhibits bidirectional volumetric asymmetry, where a disproportionate amount of data flows in one direction \cite{Sharafaldin2018}. Denial-of-service (DoS) attacks are characterized by sustained high-volume transmissions that result in highly imbalanced send–receive behavior and elevated packet loss rates relative to benign traffic \cite{SOMANI201730}. To capture these effects, the byte-based features \textit{total\_bytes}, \textit{byte\_ratio}, and \textit{byte\_imbalance} are engineered from directional byte counts \cite{MoustafaSlay2015, MoustafaSlay2016Eval}. High-volume attacks can also induce packet loss when packet-switch buffers reach capacity, causing newly arriving packets to be dropped \cite{Alizadeh2010}. This congestion-induced behavior is explicitly modeled using the loss-related features \textit{total\_loss}, \textit{loss\_ratio}, and the binary indicator \textit{has\_loss}.
+
+Benign traffic typically exhibits more stable packet timing than attack traffic, which often displays anomalous temporal behavior \cite{andrecut2022attackvsbenignnetwork}. Under denial-of-service conditions, congestion and service degradation introduce increased packet delays and higher delay variability \cite{Zhang2007LowRateDoS}. Jitter, defined as variation in packet delay or inter-arrival times, therefore serves as a useful flow-level indicator of abnormal traffic dynamics \cite{Chen2004}. The features \textit{total\_jitter} and \textit{jitter\_ratio} capture aggregate and directional delay variability, while \textit{high\_jitter} flags extreme temporal disruption using a 90th-percentile threshold computed exclusively from training data.
+
+Network traffic features are often right-skewed, particularly during attack periods, which can bias learning algorithms and degrade classification performance \cite{Lakhina2004}. In the UNSW-NB15 dataset, features such as \textit{total\_bytes} exhibit pronounced skew. To mitigate scale effects, selected high-variance features are log-transformed. Throughput-related features, including \textit{log\_throughput} and \textit{log\_total\_bytes}, capture transfer intensity while improving numerical stability and enhancing separation between benign and malicious flows.
+
+Packet-level statistics provide insight into protocol misuse and reconnaissance behavior. The features \textit{total\_packets}, \textit{packet\_ratio}, and \textit{avg\_packet\_size} characterize packet intensity, directional imbalance, and packet size distribution. Prior studies on UNSW-NB15 indicate that scanning and probing attacks generate large volumes of small, uniformly sized packets, in contrast to the more variable packet sizes observed in legitimate application traffic \cite{Sarhan10_1007}.
+
+Connection duration features add a temporal perspective for differentiating benign traffic from sustained malicious activity. Both unusually short-lived and persistently long connections are commonly associated with reconnaissance, brute-force, and denial-of-service behaviors \cite{Tavallaee2009, RING2019147}. The features \textit{log\_duration}, \textit{is\_short\_connection}, and \textit{is\_long\_connection} encode these patterns using quantile-based thresholds computed solely from training data to prevent information leakage.
+
+Finally, inconsistencies between protocol usage, services, and connection states are captured using interaction features. The feature \textit{proto\_service\_encoded} encodes joint protocol service combinations, allowing the model to learn atypical mappings such as protocol misuse on 
+non-standard service ports, consistent with the MITRE ATT\&CK Non-Standard Port technique~\cite{NonStandardPort}. The feature \textit{state\_proto\_encoded} encodes protocol–state interactions, enabling detection of anomalous patterns such as those associated with incomplete handshakes~\cite{GARCIATEODORO200918}. TCP flow-control behavior is further characterized using window based features \textit{window\_ratio}, \textit{min\_window}, and \textit{max\_window}, which capture directional imbalance and extreme window advertisements commonly associated with reconnaissance and evasion strategies \cite{Kreibich2005, Allman2009}. Label encoding is used for these interaction features because most classifiers in the ensemble are tree-based and do not assume ordinal structure. Table~\ref{tab:feature_engineering} summarizes all engineered features and their computational definitions.
+
+\subsection{Feature Scaling}
+Following feature engineering, feature scaling was applied to normalize feature magnitudes and mitigate the influence of outliers inherent in network traffic. The engineered features span heterogeneous scales, from binary indicators to large byte counts, which can bias learning algorithms toward high-magnitude attributes. To address this, the RobustScaler was used. This approach ensures that all twenty-three features contribute comparably during feature selection and model training.
+
+\subsection{Feature Selection}
+
+Feature engineering expands the dimensionality of the input space but can also introduce redundancy and noise. In operational environments, unstable feature subsets undermine the stability of the deployed model. Therefore, feature selection is employed to improve predictive performance and enhance stability. As a result, a two-stage feature selection strategy is used to identify the optimal number of features and the most discriminative features within that set.
+
+\subsubsection{Stage 1: Optimal Feature Count Determination}
+Rather than using a fixed number of features, the estimated optimal feature count, $k$ is determined through a grid search over candidate values $\{6, 10, 14, \ldots, 50\}$. Each candidate is evaluated using stratified 80--20 holdout internal validation set derived from the training data, and the value yielding the highest validation accuracy is selected.
+
+\subsubsection{Stage 2: Multi-Method Consensus Selection}
+Once the optimal feature count is established, four complementary feature selection algorithms are applied independently to capture different aspects of feature relevance:
+
+\begin{enumerate}
+    \item \textbf{Univariate Statistical Testing (ANOVA F-test):} Identifies features with the strongest linear relationships to class labels by measuring between-class variance relative to within-class variance.
+    
+    \item \textbf{Mutual Information Selection:} Captures non-linear dependencies between features and class labels by measuring the reduction in uncertainty about the target given knowledge of the feature.
+    
+    \item \textbf{Recursive Feature Elimination with Random Forest (RFE-RF):} Iteratively removes the least important features based on tree-derived Gini importance scores, retaining features that contribute most to ensemble decision boundaries.
+    
+    \item \textbf{Recursive Feature Elimination with Stochastic Gradient Decent (RFE-SGD):} Uses a linear classifier trained with log-loss SGD to iteratively eliminate features with the smallest coefficient magnitudes, retaining those that most strongly influence the model’s linear decision function.
+\end{enumerate}
+
+Each method independently selects its preferred $k$ features, and the quality of each selection is evaluated using 80--20 stratified holdout validation with a Random Forest classifier.
+
+\subsubsection{Consensus Aggregation}
+
+The final feature set is obtained through performance-weighted voting. 
+Each feature $f$ receives a cumulative score:
+\begin{equation*}
+    S(f) = \sum_{m \in \mathcal{M}} w_m \cdot \mathds{1}\{f \in F_m\}
+\end{equation*}
+where $\mathcal{M}$ is the set of selection methods, $w_m$ is the validation accuracy achieved by method $m$, and $F_m$ is the feature subset selected by method $m$. The top-$k$ features with the highest aggregated scores $S(f)$ are selected for model training. This consensus mechanism ensures that features consistently identified as important by multiple high-performing methods receive priority, while filtering out features that may be artifacts of any single selection criterion.
+
+\subsection{Classification Framework}
+The proposed system employs a stacked ensemble architecture that combines diverse base classifiers through an adaptive meta-learning strategy. This framework operates in two modes: binary classification (Normal vs. Attack) and multiclass classification (attack type identification).
+
+\subsubsection{Base Classifiers}
+The classification stage evaluates the impact of model inductive bias and architectural complexity under a fixed feature representation. Rather than exploring a large set of models, we focus on a small group of widely used classifiers that reflect complementary decision mechanisms in network intrusion detection.
+
+The ensemble includes Random Forest (RF), Extra Trees (ET), Extreme Gradient Boosting (XGBoost), and K-Nearest Neighbors (KNN). RF and ET represent tree-based ensembles with bootstrap aggregation and increased split randomization, respectively, both of which have shown strong performance on heterogeneous network traffic \cite{kocher2018performance}\cite{husain2019xgboost}\cite{sharma2019multilayer}. XGBoost captures boosting-based learning, where decision boundaries are refined iteratively and have been shown to perform well on structured intrusion detection data. KNN is included as a non-parametric baseline, making no assumptions about the underlying data distribution and providing a contrast to tree-based approaches.
+
+Hyperparameters are tuned conservatively using validation data to avoid conflating architectural comparisons with aggressive optimization, reflecting a deployment-oriented perspective. For multiclass classification, class weighting (\texttt{class\_weight=balanced}) is applied to tree-based models, linear classifiers, and the meta-learner to mitigate the substantial imbalance among attack classes.
+
+For the multiclass classification, class weighting (\texttt{class\_weight='balanced'}) 
+is applied to tree-based classifiers (RF, ET, DT), linear classifiers (SGD, LR), 
+and the meta-learner to address the substantial imbalance between attack types.
+
+\subsubsection{Classifier Weighting} Ensemble contributions combine cross-validation performance with a data-dependent adjustment for the distance-based classifier: \begin{equation*} w_c = \bar{a}_c \cdot f_c(\mathbf{X}) \end{equation*} where $\bar{a}_c$ is the mean 10-fold cross-validation accuracy of classifier $c$. For tree-based classifiers (RF, ET, XGB), $f_c = 1$ as these methods are inherently robust to outliers and feature scale variations. For KNN, the adjustment $f_c = 1 - o$ accounts for sensitivity to outliers, where $o$ is the fraction of values beyond three standard deviations: \begin{equation*} o = \frac{1}{nm}\sum_{i,j} \mathds{1}[|x_{ij} - \mu_j| > 3\sigma_j] \end{equation*} This reduces KNN's contribution when extreme values are present, as Euclidean distances become distorted in high-dimensional spaces with outliers.
+
+\subsubsection{Meta-Learner} During training, each base classifier produces probability estimates that form a prediction matrix where rows represent training instances and columns contain predictions from each classifier. This matrix serves as input to the meta-learner, which learns optimal combination patterns. For binary classification, the meta-learner is a Logistic Regression classifier with balanced class weights. For multiclass classification, the meta-learner uses multinomial logistic regression (softmax) with the LBFGS solver and balanced class weights, directly modeling the joint probability distribution over all attack types. In multiclass mode, each base classifier generates a probability distribution across all attack types. The system extracts the maximum probability as a confidence measure, forming a feature vector where each element represents the highest-confidence prediction from one base classifier. 
+
+\subsubsection{Mixing Ratio Optimization} The meta-learner and weighted average represent complementary prediction strategies with different strengths and failure modes. The meta-learner learns non-linear combinations of base predictions, capturing interaction effects that simple averaging cannot, but risks overfitting to training patterns. The weighted average, while simpler, provides a robust baseline that generalizes well when meta-learner overfitting occurs. Rather than selecting one strategy, we combine both through a convex combination: \begin{equation*} P_{\text{final}} = \alpha \cdot P_{\text{meta}} + (1 - \alpha) \cdot P_{\text{weighted}} \end{equation*} where $P_{\text{weighted}} = \sum_{c} \frac{w_c}{\sum w} \cdot p_c$ is the performance-weighted average of base predictions. The mixing ratio $\alpha$ controls the trade-off: higher values favor the meta-learner's learned combinations, while lower values favor the simpler weighted average. The optimal $\alpha$ is determined through grid search over $\{0.0, 0.1, \ldots, 1.0\}$ using a held-out validation set (20\% of training data) using the Logistic Regression classifier. We optimize a composite objective ($0.6 \cdot \text{AUC} + 0.4 \cdot F_1$) that balances ranking quality with threshold-dependent classification performance, both critical for intrusion detection where both attack prioritization and accurate labeling matter.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{Ensemble Architecture.png}
+    \caption{Three-tier ensemble architecture comprising domain-specific feature engineering, consensus-based feature selection, and stacked ensemble classification.}
+    \label{fig:placeholder}
+\end{figure}
+
+\subsection{Attack Specialist with SMOTE}
+The ensemble model is designed for general intrusion detection, whereas per-attack specialist models provide targeted detection for individual attack types. Each specialist is a binary classifier trained to distinguish a single attack class from normal traffic. The specialist architecture mirrors the ensemble pipeline: feature engineering, feature selection, and feature scaling are identical. The primary difference is that, instead of employing a meta-learner for ensembling, each specialist uses a single Extra Trees classifier. This design choice is motivated by the binary classification experiments, in which the Extra Tress Classifier consistently demonstrated superior performance.
+
+Several attack categories are severely underrepresented in the dataset. Certain attacks, such as Worms, constitute less than 0.1\% of the total samples. To address this imbalance during training, the Synthetic Minority Over-sampling Technique (SMOTE) is applied selectively. Specifically, SMOTE is used only when the class imbalance ratio exceeds 20:1, as defined by the following condition:
+
+\begin{equation*}
+\text{Apply SMOTE} \iff \frac{|\text{Normal}|}{|\text{Attack}|} > 20
+\end{equation*}
+
+SMOTE is applied exclusively to the training data after the train--test split. The held-out 30\% test set remains unmodified, ensuring an unbiased evaluation of model performance.
+
+The Extra Trees classifier employs conditional hyperparameters that are adapted to the original pre-SMOTE class imbalance ratio, as summarized in the table below.
+
+
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Imbalance Ratio} & \textbf{$n$} & \textbf{Depth} & \textbf{Min Split} & \textbf{Min Leaf} & \textbf{Class Weight}\\
+\midrule
+Extreme ($>$100:1)   & 200 & 10   & 20 & 10 & balanced \\
+High (20--100:1)     & 200 & 15   & 10 & 5  & balanced \\
+Moderate ($\leq$20:1)& 200 & None & 5  & 2  & balanced \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.80\linewidth]{Attack Specialists.png}
+    \caption{Specialist architecture comprising domain-specific feature engineering, and consensus-based feature selection on the ET model.}
+    \label{fig:placeholder}
+\end{figure}
+
+\subsection{Data Leakage Prevention}
+All feature-engineering thresholds are computed exclusively from the training data and reused unchanged for validation and testing. Validation procedures, including cross-validation, classifier weighting, and mixing-ratio tuning, are fully nested within the training split with no exposure to test data. Each specialist model computes thresholds using only its own training subset, preventing information leakage from the ensemble or test set.
+
+\section{Experimental Setup}
+\subsection{Data Preprocessing}
+For the experiments, the official UNSW-NB15 train/test split was used as provided. The official training set (\texttt{UNSW\_NB15\_training}) and test set (\texttt{UNSW\_NB15\_testing}) were loaded independently to preserve the original data partitioning.
+
+To prevent data leakage during preprocessing, all transformation statistics were computed exclusively from the training set. Missing values in numeric features were imputed using the median computed from the training data, with these same statistics applied to the test set. Infinite values were replaced with zero. Categorical features (proto, service, state) were label-encoded by fitting the encoder on training data only; unseen categories in the test set were mapped to -1 as an unknown marker. This approach ensures that no information from the test data influences the preprocessing pipeline.
+
+\subsection{Evaluation Tasks and Validation Protocol}
+
+The proposed classification framework is evaluated across three distinct tasks, all using a consistent validation protocol. In the binary classification setting, all attack types are aggregated into a single \textit{Attack} class and contrasted against the \textit{Normal} class. Both base classifiers and the ensemble are evaluated on their ability to detect intrusions regardless of attack type.
+
+In the multiclass classification setting, classifiers are trained to predict the specific attack category among nine attack classes and one normal class. Performance in this setting reflects the model’s ability to discriminate between distinct attack behaviors under severe class imbalance, where minority classes such as \textit{Worms} (approximately 0.1\% of samples) are highly underrepresented.
+
+The third task consists of attack-specific specialist models. Each specialist is a binary classifier trained to distinguish a single attack type from normal traffic. Based on preliminary experiments, the Extra Trees classifier consistently demonstrated superior performance binary task, and is therefore used for all specialist models. Each specialist is evaluated independently, enabling targeted assessment of rare attack detection scenarios where the general ensemble may under perform.
+
+Model assessment employs 10-fold stratified cross-validation with shuffling. For all experiments, the training data are further split into an 80--20 internal train--validation partition for selection and model weighting. This validation protocol is applied consistently across binary and multiclass classification, ablation studies, and attack specialist experiments, enabling valid paired statistical comparisons across configurations.
+
+Overfitting is evaluated by computing the gap between training accuracy and mean cross-validation accuracy. Gaps exceeding 10\% indicate severe overfitting, while gaps between 5--10\% indicate moderate overfitting. Underfitting is identified when mean cross-validation accuracy falls below 70\% (moderate) or 60\% (severe). Model stability is assessed using the standard deviation of cross-validation scores, where values below 0.02 indicate high stability, values below 0.05 indicate moderate stability, and larger values indicate instability.
+
+Final performance for all models is reported on the held-out 30\% test set, which remains entirely unseen during preprocessing, training, validation, and model selection.
+
+\subsection{Evaluation Metrics and Statistical Testing}
+
+Classification performance is assessed using standard evaluation metrics. For binary classification, we report accuracy, precision, recall, F1-score, and area under the receiver operating characteristic curve (AUC-ROC). For multiclass classification, we report accuracy, macro-averaged precision, recall, and F1 (treating all classes equally), as well as weighted-averaged F1 (accounting for class sizes) and macro-averaged AUC computed using the one-vs-rest (OVR) formulation. 
+
+Within the ablation study, 14 hypothesis tests are conducted at a significance level of $\alpha=0.05$. Without correction, this would inflate the family-wise error rate to approximately 51\%, yielding a high probability of at least one false positive. To control this inflation, we apply the Holm–Bonferroni correction, which sequentially adjusts $p$-values while maintaining greater statistical power than the standard Bonferroni correction. Both raw and corrected $p$-values are reported, and a comparison is deemed statistically significant only when its corrected $p$-value falls below 0.05. 
+
+Statistical significance indicates whether a difference exists, but not whether the difference is practically meaningful. To quantify practical significance, we compute Cohen’s $d$, defined as:
+
+\begin{equation*}
+    d = \frac{\bar{X}_A - \bar{X}_B}{s_{\text{diff}}}
+\end{equation*}
+
+where $\bar{X}_A$ and $\bar{X}_B$ are the mean CV scores of the two configurations being compared, and $s_{\text{diff}}$ is the standard deviation of their pairwise differences. Effect sizes are interpreted as negligible ($|d| < 0.2$), small ($0.2 \leq |d| < 0.5$), medium ($0.5 \leq |d| < 0.8$), or large ($|d| \geq 0.8$).
+
+\subsection{Ablation Study}
+
+To quantify the contribution of each component in the proposed architecture, we conduct a systematic ablation study using Extra Trees as the binary baseline model and XGBoost as the multiclass baseline model. The study is organized into three stages: feature ablation, ensemble ablation, and specialist ablation.
+
+In the feature ablation stage, we evaluate the contribution of each engineered feature group when added to the original UNSW-NB15 feature set. Each feature group---statistical features, duration features, network behavior features, and interaction features---is evaluated independently by augmenting the original features with that group alone. In addition, a configuration using all 23 engineered features combined with the original features is evaluated. Each feature configuration is tested both without feature selection and with the four-method consensus feature selection, yielding a total of twelve feature-level configurations.
+
+In the ensemble ablation stage, we assess the contribution of the stacking architecture by comparing ensemble performance against the single-model baseline (Extra Trees). Four configurations are evaluated by varying feature selection and mixing strategy; however, mixing ratio optimization consistently selected $\alpha = 1.0$ across all configurations, yielding identical cross-validation scores for fixed and optimized settings.
+
+All feature ablation and ensemble-vs-baseline comparisons are evaluated using the statistical testing framework described in Section~5.3, with Holm--Bonferroni correction applied to control the family-wise error rate  across the 12 pairwise comparisons.
+
+\subsection{Cross Dataset Study}
+To evaluate the generalizability of the binary ensemble model, we perform cross-dataset validation by training on UNSW-NB15 and testing on the BoT-IoT dataset. Because the two datasets use different feature schemas, we implement a systematic feature-mapping procedure. Table~\ref{tab:feature_mapping} summarizes the key mappings and their rationale.
+
+\begin{table}[htbp]
+\centering
+\caption{Feature Mapping from BoT-IoT to UNSW-NB15 Format}
+\label{tab:feature_mapping}
+\begin{tabular}{lll}
+\toprule
+\textbf{BoT-IoT} & \textbf{UNSW-NB15} & \textbf{Rationale} \\
+\midrule
+\multicolumn{3}{l}{\textbf{Direct mappings (same semantics)}} \\
+sport, dport & sport, dport & Identical port fields \\
+sbytes, dbytes & sbytes, dbytes & Directional byte counts \\
+spkts, dpkts & spkts, dpkts & Directional packet counts \\
+dur & dur & Connection duration \\
+proto, state & proto, state & Protocol and connection state \\
+rate & rate & Transfer rate \\
+\midrule
+\multicolumn{3}{l}{\textbf{Approximate mappings}} \\
+pkts (total) & spkts & Total $\approx$ source packets \\
+bytes (total) & sbytes & Total $\approx$ source bytes \\
+mean & smean & Mean $\approx$ source mean \\
+srate, drate & sload, dload & Rate $\approx$ load (similar semantics) \\
+\midrule
+\multicolumn{3}{l}{\textbf{Missing features (filled with defaults)}} \\
+--- & tcprtt, synack, ackdat & Filled with 0 (timing unavailable) \\
+--- & ct\_srv\_src, ct\_* & Filled with 0 (connection tracking unavailable) \\
+--- & service & Filled with ``other'' \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Results and Discussion}
+\subsection{Binary Classification}
+The consensus-based feature selection retained 30 of the original 65 features, achieving a 46\% dimensionality reduction while preserving discriminative power (Table~\ref{BinarySelectedFeatures}). Selection strongly favored volumetric and connection-tracking features. Eight of the 23 engineered statistical features were retained, including \texttt{log\_total\_bytes}, \texttt{log\_throughput}, and \texttt{packet\_ratio}, confirming directional byte asymmetry as a strong attack indicator. Log-transformed features were consistently preferred over raw counts, aligning with the right-skewed nature of network traffic distributions.
+
+Both interaction features (\texttt{state\_proto\_encoded}, \texttt{proto\_service\_encoded}) were selected, indicating that protocol--state and protocol--service inconsistencies provide strong discriminative signals. No duration or network behavior features were retained, suggesting that attacks in UNSW-NB15 manifest primarily through volumetric and protocol-level anomalies rather than temporal patterns. Connection-tracking features (\texttt{ct\_*}) dominated the original feature set, with six appearing in the top ten by consensus score, highlighting the importance of repeated destination-level connection behavior.
+
+Table~\ref{BinaryClassifierPerformance} reports classifier performance. Extra Trees achieved the highest test accuracy (93.24\%), exceeding its training accuracy (91.39\%) and demonstrating strong generalization under distribution shift (attack prevalence increasing from 55\% to 68\%). XGBoost achieved the highest recall (99.58\%) but lowest precision among tree-based models, favoring detection completeness at the expense of false positives. Random Forest exhibited the opposite trade-off, achieving the highest precision (97.40\%) with lower recall (88.72\%). KNN performed weakest (87.24\% accuracy), reflecting the limitations of distance-based methods in high-dimensional, noisy traffic data.
+
+The stacked ensemble achieved 91.12\% test accuracy with an AUC of 0.9736, underperforming Extra Trees by 2.12 percentage points. This gap suggests that ensemble complexity introduces noise from weaker base learners (particularly KNN) that offsets the benefits of classifier combination. Mixing optimization selected $\alpha = 1.0$, indicating that pure stacking outperforms convex combinations with weighted averaging. AUC increased monotonically from 0.9970 at $\alpha=0$ to 0.9976 at $\alpha=1$, while F1 remained stable (0.977--0.978), confirming that the Logistic Regression meta-learner captures non-linear classifier interactions with marginal practical gains.
+
+All models demonstrate strong generalization and stability (Table~\ref{BinaryStabality}). Overfitting gaps remain below 1.5\%, with XGBoost lowest (0.16\%) and KNN highest (1.35\%). Cross-validation standard deviations remain below 0.02, and no underfitting is observed (all CV accuracies $>87\%$). These results indicate that the selected features capture fundamental attack characteristics rather than dataset-specific artifacts, supporting the external validity of the proposed feature engineering approach.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected Features for Binary Classification}
+\label{BinarySelectedFeatures}
+\begin{tabular}{lll}
+\hline
+\textbf{Category} & \textbf{Type} & \textbf{Features} \\
+\hline
+Engineered & Statistical (8) &
+\begin{tabular}[t]{@{}l@{}}
+log\_total\_bytes, log\_throughput, packet\_ratio, \\
+log\_duration, avg\_packet\_size, is\_short\_connection, \\
+total\_packets, total\_bytes
+\end{tabular} \\[6pt]
+
+Engineered & Interaction (2) &
+state\_proto\_encoded, proto\_service\_encoded \\[6pt]
+
+Original & Raw (20) &
+\begin{tabular}[t]{@{}l@{}}
+sttl, dload, ct\_dst\_sport\_ltm, ct\_srv\_src, ct\_srv\_dst, \\
+ct\_dst\_src\_ltm, ct\_dst\_ltm, tcprtt, synack, smean, \\
+dttl, rate, dmean, ct\_state\_ttl, stcpb, service, proto, \\
+dtcpb, ct\_src\_dport\_ltm, state
+\end{tabular} \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Binary Classification Performance}
+\label{BinaryClassifierPerformance}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.3cm}p{1.4cm}p{2.5cm}p{1.2cm}p{1.9cm}p{1.5cm}p{1cm}p{2.1cm}@{}}
+
+\toprule
+\textbf{Model} 
+& \textbf{Train Acc}
+& \textbf{CV Acc} 
+& \textbf{Test Acc} 
+& \textbf{Test Precision} 
+& \textbf{Test Recall} 
+& \textbf{Test F1}
+& \textbf{Test AUC-ROC} \\
+\midrule
+
+RF       & .9630 & .9589 & .9071 & .9740 & .8872 & .9286 & .9782 \\
+ET       & .9139 & .9104 & .9324 & .9383 & .9641 & .9510 & .9803 \\
+KNN      & .9613 & .9478 & .8724 & .9412 & .8666 & .9024 & .9199 \\
+XBG      & .9760 & .9744 & .9126 & .8892 & .9958 & .9394 & .9774 \\
+Ensemble & --    & .9104 & .9112 & .8973 & .9820 & .9377 & .9736 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Binary Models: Overfitting, Underfitting, and Stability Summary}
+\label{BinaryStabality}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.3cm}p{2.2cm}p{2.4cm}p{2.8cm}p{1.3cm}p{1.8cm}@{}}
+\toprule
+\textbf{Model} 
+& \textbf{Overfitting Gap} 
+& \textbf{Overfitting Status}
+& \textbf{Underfitting Status} 
+& \textbf{STD} 
+& \textbf{Stability} \\
+\midrule
+
+RF       & .0041 & No Overfitting & No Underfitting & .0025  & High \\
+ET       & .0035 & No Overfitting & No Underfitting & .0006  & High \\
+KNN      & .0135 & No Overfitting & No Underfitting & .0135  & High \\
+XGB      & .0016 & No Overfitting & No Underfitting & .0009  & High \\
+Ensemble & --    & --             & No Underfitting & .0012  & High \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Multiclass Classification}
+For multiclass classification, consensus-based feature selection retained 22 of the original 65 features, corresponding to a 66\% dimensionality reduction, which is more aggressive than the 46\% reduction observed in the binary case (Table~\ref{BinarySelectedFeatures}). The selected features differ markedly from the binary setting, reflecting the increased difficulty of discriminating among nine attack types. Retained features include volumetric statistics (\texttt{log\_total\_bytes}, \texttt{log\_throughput}, \texttt{total\_bytes}, \texttt{throughput}) and network quality indicators (\texttt{window\_ratio}, \texttt{min\_window}, \texttt{max\_window}, \texttt{has\_loss}), suggesting that traffic volume and TCP behavior vary across attack categories. In contrast, interaction features effective in binary classification (\texttt{proto\_service\_encoded}, \texttt{state\_proto\_encoded}) were not selected, indicating limited discriminative power for differentiating between attack types.
+
+Classifier performance is summarized in Table~\ref{MulticlassClassifierPerformance}. XGBoost achieved the highest test accuracy (77.02\%) and macro F1 score (0.4948), though the gap between accuracy and macro recall (49.63\%) indicates ongoing difficulty in detecting minority classes such as Worms and Shellcode. Random Forest achieved high AUC-OVR (0.9509) but lower macro F1 (0.3952), reflecting strong ranking performance but weak calibration for minority classes. Extra Trees performed poorly relative to its binary results, achieving 70.25\% accuracy and a macro F1 of 0.2871, while KNN achieved similar accuracy (70.32\%) but the lowest AUC-OVR (0.7386), highlighting the limitations of distance-based methods in high-dimensional multiclass problems.
+
+The stacked ensemble achieved 74.09\% test accuracy, a macro F1 of 0.4083, and the highest test precision (0.6778), indicating more conservative predictions than XGBoost. Its cross-validation accuracy (53.41\%) is substantially lower than test performance due to limitations in applying weighted mixing strategies to multiclass probability vectors; as a result, mixing optimization selected $\alpha = 1.0$, and performance reflects pure meta-learner behavior.
+
+Generalization results (Table~\ref{MulticlassStabality}) show overfitting gaps below 2.5\% for all models, with high cross-validation stability (STD $< 0.03$), indicating no severe overfitting despite increased task complexity. Compared to binary classification, multiclass detection is substantially more challenging: best test accuracy drops from 93.24\% to 77.02\%, and macro F1 from 0.9510 to 0.4948. Extra Trees, the strongest binary classifier, performs worst among tree-based models in the multiclass setting, while XGBoost emerges as the most effective, demonstrating that optimal model choice is highly task-dependent.
+
+\begin{table}[htbp]
+\centering
+\caption{Selected Features for Multiclass Classification}
+\label{MulticlassSelectedFeatures}
+\begin{tabular}{lll}
+\hline
+\textbf{Category} & \textbf{Type} & \textbf{Features} \\
+\hline
+Engineered & Statistical (4) &
+\begin{tabular}[t]{@{}l@{}}
+log\_total\_bytes, log\_throughput, total\_bytes \\
+throughput
+\end{tabular} \\[6pt]
+
+Engineered & Network Quality (2) &
+window\_ratio, min\_window, max\_window, has\_lss \\[6pt]
+
+Original & Raw (14) &
+\begin{tabular}[t]{@{}l@{}}
+service, ct\_dst\_sport\_ltm, sttl, ct\_srv\_src \\
+ct\_srv\_dst, ct\_dst\_src\_ltm, rate, dload, swin, state, dwin \\
+dmean, smean
+\end{tabular} \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Multiclass Classification Performance}
+\label{MulticlassClassifierPerformance}
+
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.5cm}p{1.2cm}p{2.5cm}p{1.2cm}p{1.9cm}p{1.5cm}p{1cm}p{2.1cm}@{}}
+
+\toprule
+\textbf{Model} 
+& \textbf{Train Acc}
+& \textbf{CV Acc} 
+& \textbf{Test Acc} 
+& \textbf{Test Precision} 
+& \textbf{Test Recall} 
+& \textbf{Test F1}
+& \textbf{Test AUC-OVR} \\
+\midrule
+
+RF       & .8615 & .8549 & .7440 & .4482 & .3996 & .3952 & .9509 \\
+ET       & .7982 & .7964 & .7025 & .5076 & .3030 & .2871 & .9387 \\
+KNN      & .8813 & .8574 & .7032 & .3923 & .3608 & .3619 & .7386 \\
+XBG      & .8863 & .8789 & .7702 & .6257 & .4963 & .4948 & .9480 \\
+Ensemble & --    & .5341 & .7409 & .6778 & .4097 & .4083 & .9437 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Multiclass Models: Overfitting, Underfitting, and Stability Summary}
+\label{MulticlassStabality}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.3cm}p{2.2cm}p{2.4cm}p{2.8cm}p{1.3cm}p{1.8cm}@{}}
+\toprule
+\textbf{Model} 
+& \textbf{Overfitting Gap} 
+& \textbf{Overfitting Status}
+& \textbf{Underfitting Status} 
+& \textbf{STD} 
+& \textbf{Stability} \\
+\midrule
+
+RF       & .0066 & No Overfitting & No Underfitting & .0023  & High \\
+ET       & .0018 & No Overfitting & No Underfitting & .0026  & High \\
+KNN      & .0239 & No Overfitting & No Underfitting & .0018  & High \\
+XGB      & .0074 & No Overfitting & No Underfitting & .0024  & High \\
+Ensemble & --    & --             & No Underfitting & .0074  & High \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Attack Specialist Classification}
+All specialists retain volumetric statistical features (\texttt{log\_total\_bytes}, \texttt{avg\_packet\_size}, \texttt{packet\_ratio}), confirming that traffic volume asymmetry distinguishes attack flows from normal traffic regardless of attack category. Interaction features (\texttt{proto\_service\_encoded}, \texttt{state\_proto\_encoded}) appear in 8 of 9 specialists, indicating that protocol--state mismatches serve as near-universal attack indicators. The Worms specialist is the sole exception, retaining only \texttt{proto\_service\_encoded}, likely reflecting its extremely limited training data rather than a true absence of state-based anomalies.
+
+DoS, Fuzzers, and Shellcode specialists retain the full 62-feature set, including all engineered duration, network behavior, and interaction features. This comprehensive selection reflects the diverse manifestations of these attacks: DoS attacks range from volumetric floods to application-layer exhaustion, Fuzzers generate heterogeneous malformed inputs, and Shellcode payloads vary by target system. The breadth of retained features suggests that no single feature subset captures these attacks reliably, necessitating full-spectrum pattern recognition.
+
+In contrast, the Analysis specialist retains only 22 features, the smallest subset, emphasizing network behavior features (\texttt{has\_loss}, \texttt{window\_ratio}, \texttt{min\_window}, \texttt{max\_window}) and HTTP-related original features (\texttt{ct\_flw\_http\_mthd}, \texttt{response\_body\_len}). This focused selection aligns with Analysis attacks, which typically involve web vulnerability scanning and probing, producing distinctive TCP window patterns and HTTP request anomalies.
+
+The Exploits specialist retains the duration feature \texttt{is\_long\_connection} and loss-related features (\texttt{total\_loss}, \texttt{loss\_ratio}), reflecting the sustained connections required for exploitation and elevated packet loss resulting from evasion attempts. Reconnaissance similarly retains loss features, consistent with the high failure rates expected during port scanning and service enumeration. Generic retains \texttt{has\_loss} and \texttt{max\_window} without duration features, reflecting its high-volume, short-burst traffic profile.
+
+Table~\ref{SpecialistsClassifierPerformance} reports specialist performance. Generic and Reconnaissance achieve near-perfect detection (F1 $\geq$ 0.992, AUC = 1.000), benefiting from abundant training samples and highly distinctive signatures. DoS and Exploits achieve F1 scores above 0.97 with balanced precision and recall, demonstrating effective detection without reliance on SMOTE. Backdoor achieves an F1 score of 0.920, indicating that SMOTE successfully mitigates its class imbalance. Fuzzers achieves a moderate F1 score (0.761), with recall (0.895) exceeding precision (0.652), consistent with its heterogeneous nature and the need for broader pattern matching.
+
+Analysis, Shellcode, and Worms specialists exhibit the precision--recall trade-off characteristic of extreme class imbalance: all achieve high recall ($\geq$ 0.92) but low precision ($\leq$ 0.43), resulting in F1 scores below 0.60. Despite the use of SMOTE, these specialists prioritize attack detection over false-positive minimization.
+
+Table~\ref{SpecialistStabality} confirms high stability across all specialists (standard deviation $<$ 0.03), with only the Fuzzers specialist exhibiting moderate overfitting (generalization gap = 0.061). Overall, these results demonstrate that the feature selection process yields attack-appropriate subsets that generalize beyond the training distribution.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Specialist Classification Performance}
+\label{SpecialistsClassifierPerformance}
+
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{2.7cm}p{1.4cm}p{2.5cm}p{1.2cm}p{1.9cm}p{1.5cm}p{1cm}p{2.1cm}@{}}
+
+\toprule
+\textbf{Model} 
+& \textbf{Train Acc}
+& \textbf{CV Acc (10-Folds)} 
+& \textbf{Test Acc} 
+& \textbf{Test Precision} 
+& \textbf{Test Recall} 
+& \textbf{Test F1}
+& \textbf{Test AUC-OVR} \\
+\midrule
+
+Analysis (SMOTE)  & .9630 & .9780 & .9790 & .4260 & .9960 & .5960 & .9960 \\
+Backdoor (SMOTE)  & .9960 & .9890 & .9890 & .8660 & .9810 & .9200 & .9990 \\
+DoS               & .9980 & .9860 & .9840 & .9730 & .9730 & .9750 & .9990 \\
+Exploits          & .9980 & .9860 & .9870 & .9810 & .9830 & .9820 & .9990 \\
+Fuzzers           & .9460 & .8840 & .8880 & .6520 & .8950 & .7610 & .9600 \\
+Generic           & 1.000 & .9970 & .9970 & .9950 & .9970 & .9960 & 1.000 \\
+Reconnaissance    & .9990 & .9960 & .9960 & .9890 & .9950 & .9920 & 1.000 \\
+Shellcode (SMOTE) & .9240 & .9580 & .9240 & .1830 & 1.000 & .3100 & .9960 \\
+Worms (SMOTE)     & .9890 & .9720 & .9890 & .1520 & .9230 & .2620 & .9980 \\
+
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Specialist Models: Overfitting, Underfitting, and Stability Summary}
+\label{SpecialistStabality}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{2.7cm}p{2.2cm}p{2.7cm}p{2.8cm}p{1.3cm}p{1.8cm}@{}}
+\toprule
+\textbf{Model} 
+& \textbf{Overfitting Gap} 
+& \textbf{Overfitting Status}
+& \textbf{Underfitting Status} 
+& \textbf{STD} 
+& \textbf{Stability} \\
+\midrule
+
+Analysis (Smote)  & -.0015 & No Overfitting       & No Underfitting & .0020 & High \\
+Backdoor (Smote)  & .0070  & No Overfitting       & No Underfitting & .0040 & High \\
+DoS               & .0130  & No Overfitting       & No Underfitting & .0020 & High \\
+Exploits          & .0130  & No Overfitting       & No Underfitting & .0010 & High \\
+Fuzzers           & .0610  & Moderate Overfitting & No Underfitting & .0030 & High \\
+Generic           & .0020  & No Overfitting       & No Underfitting & .0010 & High \\
+Reconnaissance    & .0030  & No Overfitting       & No Underfitting & .0010 & High \\
+Shellcode (SMOTE) & -.0340 & No Overfitting       & No Underfitting & .0040 & High \\
+Worms (SMOTE)     & .0018  & No Overfitting       & No Underfitting & .0270 & High \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ablation Study Results}
+
+Tables~\ref{BinaryAblation} and~\ref{MulticlassAblation} report the ablation results for binary and multiclass classification.
+
+For binary classification, feature group contributions differ substantially. Statistical features provide a small but statistically significant improvement when feature selection is disabled ($+0.17\%$, $d = 1.47$), but this benefit disappears once selection is applied. In contrast, duration and network features consistently degrade performance ($-0.27\%$ and $-0.07\%$, respectively), indicating that they introduce noise rather than useful signal for binary attack detection. Interaction features do not produce a significant effect.
+
+Adding the full set of 23 engineered features without feature selection leads to a significant performance drop ($-0.27\%$, $d = -1.98$), suggesting redundancy and harmful correlations within the combined feature space. Consensus-based feature selection fully mitigates this degradation and yields a clear improvement ($+0.28\%$, $d = 2.18$), highlighting its critical role in filtering detrimental features. The stacked ensemble shows a significant improvement over the baseline during cross-validation ($+0.36\%$, $d = 3.36$, $p < 0.0001$). However, this gain does not carry over to the held-out test set, where Extra Trees outperforms the ensemble (93.24\% vs.\ 91.12\%). This discrepancy suggests that the added ensemble complexity overfits to patterns observed during training rather than improving generalization.
+
+
+The multiclass results follow a markedly different pattern. Most individual feature groups have negligible impact, with the exception of statistical features combined with selection, which significantly reduce performance ($-2.74\%$, $d = -16.22$). This counterintuitive outcome suggests that feature selection optimized for binary discrimination removes features that are essential for separating multiple attack classes. When all 23 engineered features are added without selection, performance improves slightly ($+0.17\%$, $d = 1.98$), but feature selection offers no additional benefit. Most notably, the stacked ensemble substantially underperforms the baseline ($-34.90\%$, $d = -46.88$), indicating that meta-learning struggles to combine base classifiers effectively in the 10-class setting. These results support the use of XGBoost as a standalone classifier for multiclass classification rather than the ensemble architecture.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Binary Ablation}
+\label{BinaryAblation}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{3.7cm}p{0.7cm}p{1cm}p{1cm}p{1cm}p{1.5cm}p{2.1cm}@{}}
+\toprule
+\textbf{Comparison} 
+& \textbf{Test} 
+& \textbf{$\Delta$ Acc}
+& \textbf{p-raw} 
+& \textbf{p-corr} 
+& \textbf{Cohen d}
+& \textbf{Significant}\\
+\midrule
+Statistical features (no sel)       & t-test & +0.0017 & 0.0012 & 0.0109 & 1.47 (Lar)  & Significant     \\
+Statistical features (with sel)     & t-test & +0.0004 & 0.2345 & 1.0000 & 0.40 (Sma)  & Not Significant \\
+Duration features (no sel)          & t-test & -0.0027 & 0.0000 & 0.0005 & -2.36 (Lar) & Significant     \\
+Duration features (with sel)        & t-test & -0.0025 & 0.0000 & 0.0001 & -2.76 (Lar) & Significant     \\
+Network features (no sel)           & t-test & -0.0007 & 0.0026 & 0.0208 & -1.30 (Lar) & Significant     \\
+Network features (with sel)         & t-test & -0.0003 & 0.3739 & 1.0000 & -0.30 (Sma) & Not Significant \\
+Interaction features (no sel)       & t-test & -0.0003 & 0.2652 & 1.0000 & -0.38 (Sma) & Not Significant \\
+Interaction features (with sel)     & t-test & -0.0002 & 0.5599 & 1.0000 & -0.19 (Neg) & Not Significant \\
+All 23 features (no sel)            & t-test & -0.0027 & 0.0001 & 0.0015 & -1.98 (Lar) & Significant     \\
+All 23 features (with sel)          & t-test & +0.0001 & 0.7969 & 1.0000 & 0.08 (Neg)  & Not Significant \\
+Selection effect on full FE         & t-test & +0.0028 & 0.0001 & 0.0008 & 2.18 (Lar)  & Significant     \\
+Ensemble effect                     & t-test & +0.0036 & 0.0000 & 0.0000 & 3.36 (Lar)  & Significant     \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Multiclass Ablation}
+\label{MulticlassAblation}
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{3.7cm}p{0.7cm}p{1cm}p{1cm}p{1cm}p{1.6cm}p{2.1cm}@{}}
+\toprule
+\textbf{Comparison} 
+& \textbf{Test} 
+& \textbf{$\Delta$ Acc}
+& \textbf{p-raw} 
+& \textbf{p-corr} 
+& \textbf{Cohen d}
+& \textbf{Significant}\\
+\midrule
+Statistical features (no sel)       & t-test & +0.0011 & 0.0225 & 0.2247 & 0.87 (Lar)   &  Not Significant \\
+Statistical features (with sel)     & t-test & -0.0274 & 0.0000 & 0.0000 & -16.22 (Lar) & Significant      \\
+Duration features (no sel)          & t-test & +0.0001 & 0.7603 & 1.0000 & 0.10 (Neg)   &  Not Significant \\
+Duration features (with sel)        & t-test & +0.0001 & 0.7463 & 1.0000 & 0.11 (Neg)   &  Not Significant \\
+Network features (no sel)           & t-test & -0.0004 & 0.4390 & 1.0000 & -0.26 (Sma)  &  Not Significant \\
+Network features (with sel)         & t-test & -0.0004 & 0.4562 & 1.0000 & -0.25 (Sma)  &  Not Significant \\
+Interaction features (no sel)       & t-test & +0.0004 & 0.1922 & 1.0000 & 0.45 (Sma)   &  Not Significant \\
+Interaction features (with sel)     & t-test & +0.0004 & 0.2118 & 1.0000 & 0.43 (Sma)   &  Not Significant \\
+All 23 features (no sel)            & t-test & +0.0017 & 0.0001 & 0.0017 & 1.98 (Lar)   & Significant      \\
+All 23 features (with sel)          & t-test & +0.0017 & 0.0054 & 0.0594 & 1.15 (Lar)   &  Not Significant \\
+Selection effect on full FE         & t-test & -0.0001 & 0.8203 & 1.0000 & -0.07 (Neg)  &  Not Significant \\
+Ensemble effect                     & t-test & -0.3490 & 0.0000 & 0.0000 & -46.88 (Lar) & Significant      \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Cross Dataset Results and Discussion}
+Cross-dataset evaluation tested the UNSW-NB15 trained binary ensemble on 74 BoT-IoT segments totaling 73.4 million samples. Results demonstrate complete generalization failure with mean accuracy of 25.6\%, mean F1 of 0.369, and mean AUC of 0.287.
+
+BoT-IoT’s class distribution is heavily attack-dominated, with individual files containing 99.9\%+ attack samples and fewer than 50 normal samples per million. Despite this composition, the UNSW-trained model predicts over half of all samples as normal. This behavior is not majority-class prediction; a trivial majority-class classifier would predict all samples as attack and achieve 99.9\% accuracy. Instead, the model systematically misclassifies large volumes of attack traffic as normal, indicating a learned bias that is misaligned with the target domain.
+
+The low AUC (0.287) indicates that model confidence does not correlate with ground truth: attack and normal samples receive similar probability scores, providing no separable threshold. Many files exhibit AUC below 0.3, suggesting the learned feature representations carry no discriminative signal for BoT-IoT traffic. This contrasts sharply with within-dataset performance, where the same model achieves 0.97+ AUC on UNSW-NB15.
+
+Performance degradation reflects a fundamental domain shift between datasets. UNSW-NB15 captures enterprise network attacks such as fuzzers, exploits, and backdoors with protocol and connection patterns learned during training. BoT-IoT captures IoT botnet traffic including DDoS, reconnaissance, and data exfiltration with different volumetric characteristics and protocol distributions. Features that are discriminative for UNSW-NB15 attacks, such as connection-tracking counters (\texttt{ct\_dst\_sport\_ltm}, \texttt{ct\_srv\_src}) and protocol-state interactions (\texttt{state\_proto\_encoded}), fail to represent IoT attack behavior. As a result, the model treats IoT attack traffic as indistinguishable from the normal traffic patterns learned during training.
+
+Precision remains high (0.97) because when the model predicts an attack, it is usually correct, but it only identifies a minority of actual attacks. The collapse in recall (0.256 mean) confirms that most attacks go undetected. Average F1 scores of 0.37 obscure this failure by weighting precision and recall equally.
+
+These results align with prior cross-dataset studies showing that single-dataset training produces decision boundaries that do not transfer across network environments \cite{Layeghy2022}\cite{Zhang2023}. Effective deployment requires domain adaptation, transfer learning, or target-domain fine-tuning to recalibrate learned representations for the deployment context.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Top 10 Datasets by F1-Score}
+\label{Top10DatasetsByF1}
+
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.8cm}p{1.6cm}p{1.4cm}p{1.2cm}p{1.1cm}p{1.3cm}p{1.3cm}p{1.2cm}@{}}
+\toprule
+\textbf{Dataset} 
+& \textbf{Samples}
+& \textbf{Accuracy}
+& \textbf{Precision}
+& \textbf{Recall}
+& \textbf{F1-Score}
+& \textbf{AUC} \\
+\midrule
+
+
+data\_70.csv & 1,000,000 & .8316 & 1.0000 & .8316 & .9081 & .3300 \\
+data\_33.csv & 1,000,000 & .6065 & 1.0000 & .6065 & .7550 & .4660 \\
+data\_74.csv & 370,443   & .5914 & .9999 & .5914  & .7432 & .2927 \\
+data\_68.csv & 1,000,000 & .5757 & 1.0000 & .5757 & .7307 & .3783 \\
+data\_51.csv & 1,000,000 & .5755 & 1.0000 & .5755 & .7306 & .3333 \\
+data\_52.csv & 1,000,000 & .5682 & 1.0000 & .5682 & .7246 & .4329 \\
+data\_57.csv & 1,000,000 & .5236 & 1.0000 & .5236 & .6873 & .4685 \\
+data\_64.csv & 1,000,000 & .5154 & 1.0000 & .5154 & .6802 & .3480 \\
+data\_55.csv & 1,000,000 & .4945 & 1.0000 & .4945 & .6617 & .4584 \\
+data\_17.csv & 1,000,000 & .4678 & 1.0000 & .4678 & .6374 & .3342 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Bottom 10 Datasets by F1-Score}
+\label{Bottom10DatasetsByF1}
+
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}p{1.8cm}p{1.6cm}p{1.4cm}p{1.2cm}p{1.1cm}p{1.3cm}p{1.3cm}p{1.2cm}@{}}\toprule
+\textbf{Dataset} 
+& \textbf{Samples}
+& \textbf{Accuracy}
+& \textbf{Precision}
+& \textbf{Recall}
+& \textbf{F1-Score}
+& \textbf{AUC} \\
+\midrule
+
+data\_50.csv & 1,000,000 & .0000 & .0000 & .0000 & .0000 & .1604 \\
+data\_49.csv & 1,000,000 & .0000 & .0000 & .0000 & .0000 & .2470 \\
+data\_34.csv & 1,000,000 & .0001 & .8462 & .0001 & .0003 & .1764 \\
+data\_11.csv & 1,000,000 & .0006 & .9581 & .0006 & .0011 & .0851 \\
+data\_8.csv  & 1,000,000 & .0006 & .9690 & .0006 & .0013 & .1117 \\
+data\_27.csv & 1,000,000 & .0010 & .9796 & .0010 & .0020 & .2275 \\
+data\_4.csv  & 1,000,000 & .0035 & .9924 & .0034 & .0067 & .3419 \\
+data\_3.csv  & 1,000,000 & .0045 & .9943 & .0044 & .0087 & .4486 \\
+data\_30.csv & 1,000,000 & .0047 & .9949 & .0047 & .0093 & .1149 \\
+data\_10.csv & 1,000,000 & .0049 & .9963 & .0049 & .0097 & .1442 \\
+
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Overall Cross-Dataset Evaluation Summary}
+\label{OverallEvaluationSummary}
+
+\renewcommand{\arraystretch}{1.0}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}p{5.5cm}p{3.5cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Value} \\
+\midrule
+
+Total Files Processed     & 73 \\
+\midrule
+
+Average Accuracy   & $0.2559 \pm 0.1955$ \\
+Average Precision  & $0.9687 \pm 0.1625$ \\
+Average Recall     & $0.2559 \pm 0.1955$ \\
+Average F1-Score   & $0.3691 \pm 0.2495$ \\
+Average AUC        & $0.2873 \pm 0.1125$ \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\section{Conclusion}
+This study presented a comprehensive framework for network intrusion detection on the UNSW-NB15 dataset, integrating domain-driven feature engineering, consensus-based feature selection, and stacked ensemble classification. Twenty-three features were engineered to capture volumetric, temporal, protocol-interaction, and network behavior patterns, with a four-method consensus mechanism retaining only the most discriminative attributes.
+
+For binary classification, Extra Trees achieved the highest test accuracy (93.24\%) with strong generalization (overfitting gap $<$1\%). The stacked ensemble underperformed individual classifiers on the held-out test set, indicating that meta-learning complexity does not consistently improve generalization for this task. For multiclass classification, XGBoost achieved the best performance (77.02\% accuracy, 0.49 macro F1), with the ensemble again underperforming due to difficulties combining base classifiers across 10 classes. Attack-specific specialists achieved near-perfect detection for high-frequency attacks (Generic, Reconnaissance: F1 $>$0.99) but exhibited precision-recall trade-offs for rare attacks despite SMOTE augmentation.
+
+Ablation analysis confirmed that consensus-based feature selection is critical: adding all 23 engineered features without selection degraded performance, while selection fully mitigated this effect. Cross-dataset evaluation on BoT-IoT revealed complete generalization failure (25.6\% accuracy, 0.29 AUC), demonstrating that models trained on enterprise network traffic do not transfer to IoT environments without domain adaptation.
+
+These findings suggest that (1) simpler models with proper feature selection outperform complex ensembles for intrusion detection on UNSW-NB15, (2) task-specific architecture selection matters---Extra Trees for binary, XGBoost for multiclass, and (3) cross-domain deployment requires target-domain fine-tuning rather than direct model transfer.
+
+\section{Limitation}
+The primary limitation of this study is the absence of temporal feature modeling. The official UNSW-NB15 training and testing splits do not preserve temporal ordering, precluding the construction of time-series or sequence-based features. In operational intrusion detection, temporal patterns such as attack progression, traffic bursts, and connection timing are critical indicators of malicious activity. The inability to model these dynamics may limit detection of attacks that manifest through temporal signatures rather than per-flow statistics.
+
+Second, the cross-dataset evaluation reveals that the proposed framework does not generalize across network environments. The BoT-IoT results (25.6\% accuracy, 0.29 AUC) demonstrate that features effective for enterprise network attacks (UNSW-NB15) fail to capture IoT botnet behavior. This limits practical deployment without target-domain adaptation or retraining.
+
+Third, the specialist models for rare attack types (Analysis, Shellcode, Worms) exhibit low precision despite SMOTE augmentation. With fewer than 50 training samples for some classes, synthetic oversampling cannot fully compensate for insufficient attack diversity, resulting in high false positive rates.
+
+Finally, the study uses default or lightly tuned hyperparameters to focus on architectural contributions. Exhaustive hyperparameter optimization could improve absolute performance but was outside the scope of this work.
+
+\newpage
+\section*{Acknowledgments}
+I would like to sincerely thank Dr. Wang for his generosity in providing access to the computational resources essential to the completion of this work. I would also like to thank Dr. Erick C. Jones for his continuous guidance and mentorship throughout this project, which have been truly invaluable to the compleation of this project.
+
+
+\end{document}

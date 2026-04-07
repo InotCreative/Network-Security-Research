@@ -1,0 +1,207 @@
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Pre-flight checks[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Working directory: /home/axb9775/UNSW-NB15 Research Project
+[0;36m[INFO][0m  Python: Python 3.12.3  (3.12)
+[0;32m[OK][0m    Data files found.
+[1;33m[WARN][0m  --skip-tests set: skipping pytest.
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: binary_sanity[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/binary_sanity.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:23:32
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:23:33 | INFO     | __main__ | Run ID: 20260407_172333_198e82
+2026-04-07 12:23:33 | INFO     | __main__ | Config: configs/binary_sanity.yaml
+2026-04-07 12:23:33 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:23:33 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:23:34 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:23:34 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:23:34 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:23:34 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: binary
+2026-04-07 12:23:34 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Attack=45332(55.1%)
+2026-04-07 12:23:34 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Attack=119341(68.1%)
+2026-04-07 12:23:34 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/3  (train=54888, val=27444) ═══
+run_all.sh: line 94: 11526 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m binary_sanity FAILED after 0m 34s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: multiclass_main[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/multiclass_main.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:06
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:24:07 | INFO     | __main__ | Run ID: 20260407_172407_133672
+2026-04-07 12:24:07 | INFO     | __main__ | Config: configs/multiclass_main.yaml
+2026-04-07 12:24:07 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:24:07 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:07 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:07 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:08 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:08 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:24:08 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:24:08 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:24:08 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 14891 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m multiclass_main FAILED after 0m 10s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_no_calibration[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/no_calibration.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:16
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:24:17 | INFO     | __main__ | Run ID: 20260407_172417_f4b273
+2026-04-07 12:24:17 | INFO     | __main__ | Config: configs/ablations/no_calibration.yaml
+2026-04-07 12:24:17 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:24:17 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:18 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:18 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:18 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:18 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:24:18 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:24:18 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:24:18 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 15662 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_no_calibration FAILED after 0m 12s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_no_gate[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/no_gate.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:28
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:24:29 | INFO     | __main__ | Run ID: 20260407_172429_1e0943
+2026-04-07 12:24:29 | INFO     | __main__ | Config: configs/ablations/no_gate.yaml
+2026-04-07 12:24:29 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:24:29 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:29 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:29 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:30 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:30 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:24:30 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:24:30 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:24:30 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 16538 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_no_gate FAILED after 0m 10s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_no_feature_selection[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/no_feature_selection.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:38
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:24:39 | INFO     | __main__ | Run ID: 20260407_172439_834b46
+2026-04-07 12:24:39 | INFO     | __main__ | Config: configs/ablations/no_feature_selection.yaml
+2026-04-07 12:24:39 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:24:39 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:39 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:39 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:40 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:40 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:24:40 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:24:40 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:24:40 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 17306 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_no_feature_selection FAILED after 0m 7s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_no_engineered_features[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/no_engineered_features.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:45
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:24:46 | INFO     | __main__ | Run ID: 20260407_172446_9ed25c
+2026-04-07 12:24:46 | INFO     | __main__ | Config: configs/ablations/no_engineered_features.yaml
+2026-04-07 12:24:46 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:24:46 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:46 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:24:46 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:46 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:24:46 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:24:46 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:24:46 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:24:46 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 18074 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_no_engineered_features FAILED after 0m 14s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_simplified_meta_features[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/simplified_meta_features.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:24:59
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:25:00 | INFO     | __main__ | Run ID: 20260407_172500_317be4
+2026-04-07 12:25:00 | INFO     | __main__ | Config: configs/ablations/simplified_meta_features.yaml
+2026-04-07 12:25:00 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:25:00 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:25:00 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:25:00 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:25:00 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:25:00 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:25:00 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:25:00 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:25:00 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 19441 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_simplified_meta_features FAILED after 0m 4s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Experiment: ablation_no_stability_weighting[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+[0;36m[INFO][0m  Config: configs/ablations/no_stability_weighting.yaml
+[0;36m[INFO][0m  Start: 2026-04-07 12:25:03
+/home/axb9775/UNSW-NB15 Research Project/src/pipeline/run.py:44: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  run_id = config.get("run_id") or f"{datetime.datetime.utcnow():%Y%m%d_%H%M%S}_{uuid.uuid4().hex[:6]}"
+2026-04-07 12:25:05 | INFO     | __main__ | Run ID: 20260407_172505_5d7ae5
+2026-04-07 12:25:05 | INFO     | __main__ | Config: configs/ablations/no_stability_weighting.yaml
+2026-04-07 12:25:05 | INFO     | __main__ | Global seed: 42
+2026-04-07 12:25:05 | INFO     | src.data.loader | Loading data/UNSW_NB15_training-set.csv
+2026-04-07 12:25:05 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data/UNSW_NB15_training-set.csv
+2026-04-07 12:25:05 | INFO     | src.data.loader | Loading data/UNSW_NB15_testing-set.csv
+2026-04-07 12:25:05 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data/UNSW_NB15_testing-set.csv
+2026-04-07 12:25:05 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-07 12:25:05 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-07 12:25:05 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-07 12:25:05 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+run_all.sh: line 94: 20107 Killed                  $PYTHON -m src.pipeline.run --config "$config"
+[0;31m[ERROR][0m ablation_no_stability_weighting FAILED after 0m 5s
+
+[1m[0;36m══════════════════════════════════════════════[0m
+[1m[0;36m  Run summary[0m
+[1m[0;36m══════════════════════════════════════════════[0m
+Experiment                                     Status
+-----------------------------------------      ------
+tests                                          [1;33mSKIPPED[0m
+binary_sanity                                  [0;31mFAILED[0m
+multiclass_main                                [0;31mFAILED[0m
+ablation_no_calibration                        [0;31mFAILED[0m
+ablation_no_gate                               [0;31mFAILED[0m
+ablation_no_feature_selection                  [0;31mFAILED[0m
+ablation_no_engineered_features                [0;31mFAILED[0m
+ablation_simplified_meta_features              [0;31mFAILED[0m
+ablation_no_stability_weighting                [0;31mFAILED[0m
+
+[0;36m[INFO][0m  Total elapsed: 0h 1m 36s
+[0;36m[INFO][0m  Artifacts: artifacts/
+[0;36m[INFO][0m  Reports:   reports/
+
+[0;36m[INFO][0m  Most recent artifact directories:
+    artifacts/20260407_172505_5d7ae5/
+    artifacts/20260407_172500_317be4/
+    artifacts/20260407_172446_9ed25c/
+    artifacts/20260407_172439_834b46/
+    artifacts/20260407_172429_1e0943/
+    artifacts/20260407_172417_f4b273/
+    artifacts/20260407_172407_133672/
+    artifacts/20260407_172333_198e82/
+
+[0;31m[ERROR][0m One or more experiments failed. Check logs above.
