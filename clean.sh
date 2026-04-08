@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# clean.sh — Remove all generated files, leaving only source code and configs.
 
 set -euo pipefail
 

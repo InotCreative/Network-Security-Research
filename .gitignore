@@ -16,3 +16,8 @@ __pycache__/
 data/
 
 ./run_all_output.log
+
+./Claude_Code_Design_Document_UNSW_NB15_Ensemble.docx
+./JCVHT_manuscript_rework_blueprint_v2.docx
+
+./sn-article.tex
