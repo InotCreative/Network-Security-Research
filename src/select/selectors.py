@@ -26,7 +26,6 @@ from sklearn.feature_selection import (
     SelectKBest,
     f_classif,
     mutual_info_classif,
-    RFE,
 )
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
@@ -91,22 +90,27 @@ class MutualInfoSelector(BaseSelector):
         return list(np.argsort(self._scores)[::-1][:k])
 
 
-class RFERandomForestSelector(BaseSelector):
-    """RFE driven by a small Random Forest (uses feature_importances_)."""
-    name = "rfe_rf"
+class RFImportanceSelector(BaseSelector):
+    """Random Forest feature-importance ranking.
+
+    Fits a small RF and ranks features by mean decrease in Gini impurity
+    (feature_importances_). This is a single-pass importance ranking, not
+    recursive feature elimination — it is faster and more stable than
+    step-wise RFE while capturing non-linear interactions implicitly.
+    """
+    name = "rf_importance"
 
     def __init__(self, n_estimators: int = 50) -> None:
         self._n_estimators = n_estimators
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "RFERandomForestSelector":
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "RFImportanceSelector":
         base = RandomForestClassifier(
             n_estimators=self._n_estimators,
             max_depth=10,
             class_weight="balanced",
             n_jobs=-1,
-            random_state=get_seed("rfe_rf"),
+            random_state=get_seed("rf_importance"),
         )
-        # Use importance-based ranking directly (faster than step-wise RFE)
         base.fit(X, y)
         self._importances = base.feature_importances_
         return self
@@ -118,11 +122,17 @@ class RFERandomForestSelector(BaseSelector):
         return list(np.argsort(self._importances)[::-1][:k])
 
 
-class RFESGDSelector(BaseSelector):
-    """RFE driven by a sparse linear SGD model (L1 / ElasticNet surrogate)."""
-    name = "rfe_sgd"
+class SGDCoefficientSelector(BaseSelector):
+    """SGD ElasticNet coefficient-magnitude ranking.
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "RFESGDSelector":
+    Fits a sparse linear SGD classifier (modified Huber loss, ElasticNet
+    penalty) and ranks features by mean absolute coefficient across classes.
+    Provides a complementary linear-separability view to the tree-based
+    selectors.
+    """
+    name = "sgd_coef"
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "SGDCoefficientSelector":
         base = SGDClassifier(
             loss="modified_huber",
             penalty="elasticnet",
@@ -130,7 +140,7 @@ class RFESGDSelector(BaseSelector):
             max_iter=500,
             tol=1e-3,
             class_weight="balanced",
-            random_state=get_seed("rfe_sgd"),
+            random_state=get_seed("sgd_coef"),
             n_jobs=-1,
         )
         base.fit(X, y)
@@ -151,8 +161,8 @@ class RFESGDSelector(BaseSelector):
 ALL_SELECTORS = [
     ANOVASelector,
     MutualInfoSelector,
-    RFERandomForestSelector,
-    RFESGDSelector,
+    RFImportanceSelector,
+    SGDCoefficientSelector,
 ]
 
 SELECTOR_NAMES = {cls().name: cls for cls in ALL_SELECTORS}
@@ -166,11 +176,11 @@ def build_selectors(names: Optional[List[str]] = None) -> List[BaseSelector]:
     names:
         If None (default), return all four selectors.
         If a list of selector names is given, return only those selectors
-        in the canonical order (anova_f, mutual_info, rfe_rf, rfe_sgd).
+        in the canonical order (anova_f, mutual_info, rf_importance, sgd_coef).
         This is used by the single_selector ablation to test whether the
         consensus of four heterogeneous selectors outperforms one alone.
 
-    Valid names: 'anova_f', 'mutual_info', 'rfe_rf', 'rfe_sgd'
+    Valid names: 'anova_f', 'mutual_info', 'rf_importance', 'sgd_coef'
     """
     if names is None:
         return [cls() for cls in ALL_SELECTORS]

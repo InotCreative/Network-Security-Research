@@ -28,10 +28,10 @@ gate_model: auto
 # feature-selected training data. Disabled by default (expensive: adds
 # ~n_iter × n_cv × n_models fitting passes per fold).
 hp_search:
-  enabled: false      # set to true to activate tuning
-  n_iter: 20          # random configurations sampled per model
-  n_cv: 3             # inner stratified-CV folds for the search
-  scoring: f1_macro   # optimisation target (matches paper primary metric)
+  enabled: true
+  n_iter: 20
+  n_cv: 3
+  scoring: f1_macro
 
 # Ablation flags (all false for the main experiment)
 ablation:

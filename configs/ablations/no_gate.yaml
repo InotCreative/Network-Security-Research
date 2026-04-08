@@ -10,6 +10,12 @@ n_oof_splits: 7
 n_inner_folds: 3
 k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 57, 60]
 gate_model: auto
+hp_search:
+  enabled: true
+  n_iter: 20
+  n_cv: 3
+  scoring: f1_macro
+
 ablation:
   no_calibration: false
   no_gate: true

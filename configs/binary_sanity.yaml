@@ -18,6 +18,12 @@ k_grid: [16, 24, 36, 50]
 
 gate_model: ridge
 
+hp_search:
+  enabled: true
+  n_iter: 20
+  n_cv: 3
+  scoring: f1_macro
+
 ablation:
   no_calibration: false
   no_gate: false
