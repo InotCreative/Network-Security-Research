@@ -35,7 +35,7 @@ from src.eval.exporters import ResultsExporter
 from src.eval.metrics import multiclass_metrics, sanity_check_accuracy
 from src.eval.reliability import reliability_diagram_data
 from src.features.engineer import FeatureEngineer
-from src.models.base_models import build_default_models
+from src.models.base_models import build_default_models, build_models_from_params
 from src.select.consensus import ConsensusSelector
 from src.utils.manifests import RunManifest
 from src.utils.seeds import get_seed, get_global_seed, seed_summary
@@ -106,6 +106,9 @@ class FoldRunner:
         final_ensemble = self._train_final_ensemble(X_train, y_train.values, exporter)
         self._evaluate_test(final_ensemble, X_test, y_test.values, exporter)
 
+        # ── Scientific integrity: warn if ensemble fails to beat stacker ─────
+        self._check_ensemble_vs_stacker(exporter)
+
         # ── Export all artifacts ───────────────────────────────────────────────
         exporter.export_all(self._class_names)
         self.manifest.save(self.artifact_dir)
@@ -132,6 +135,7 @@ class FoldRunner:
             k_grid=self.config.get("k_grid", None),
             n_inner_folds=self.config.get("n_inner_folds", 3),
             use_stability_weighting=not self.ablation.get("no_stability_weighting", False),
+            active_selector_names=self.config.get("selector_names"),
         )
         sel_result = selector.fit(X_tr_eng, y_tr)
         exporter.export_feature_artifacts(sel_result, fold_idx)
@@ -152,8 +156,8 @@ class FoldRunner:
             fold_idx, len(sel_cols), sel_cols[:5],
         )
 
-        # ── 3. Build and train ensemble ────────────────────────────────────────
-        base_models = build_default_models()
+        # ── 3. Hyperparameter search (optional, fit on outer_train only) ──────
+        base_models = self._build_base_models(X_tr_sel, y_tr, fold_idx)
         combiner = EnsembleCombiner(
             base_models=base_models,
             n_classes=self._n_classes,
@@ -213,6 +217,127 @@ class FoldRunner:
 
         return fold_metrics
 
+    def _check_ensemble_vs_stacker(self, exporter: "ResultsExporter") -> None:
+        """Scientific integrity check required by CLAUDE.md.
+
+        If the gated ensemble (p_final) fails to beat plain stacking (p_stack)
+        on mean macro F1 across outer folds, emit a prominent WARNING.
+        Do NOT suppress or hide this — report honestly in the paper.
+        """
+        df = pd.DataFrame(exporter._fold_results)
+        if "macro_f1" not in df.columns:
+            return
+
+        proposed = df[df.method == "p_final"].sort_values("fold")["macro_f1"].values
+        stacker = df[df.method == "p_stack"].sort_values("fold")["macro_f1"].values
+        wa = df[df.method == "p_weighted"].sort_values("fold")["macro_f1"].values
+
+        if len(proposed) == 0 or len(stacker) == 0:
+            logger.warning("Could not find p_final or p_stack in fold results — skipping integrity check.")
+            return
+
+        mean_vs_stack = float(proposed.mean()) - float(stacker.mean())
+        mean_vs_wa = float(proposed.mean()) - float(wa.mean()) if len(wa) > 0 else None
+
+        if mean_vs_stack < 0:
+            logger.warning(
+                "\n"
+                "╔══════════════════════════════════════════════════════════════════╗\n"
+                "║  ⚠  SCIENTIFIC INTEGRITY WARNING                                ║\n"
+                "║                                                                  ║\n"
+                "║  p_final (gated ensemble) FAILED to beat p_stack (plain         ║\n"
+                "║  stacker) on multiclass macro F1.                                ║\n"
+                "║                                                                  ║\n"
+                "║  p_final mean macro_F1 = %.4f                                  ║\n"
+                "║  p_stack  mean macro_F1 = %.4f                                  ║\n"
+                "║  Difference             = %.4f (ensemble − stacker)             ║\n"
+                "║                                                                  ║\n"
+                "║  Per-fold results: %s\n"
+                "║                                                                  ║\n"
+                "║  ACTION REQUIRED: Do NOT adjust code to hide this result.       ║\n"
+                "║  Report it honestly in the paper. Investigate gate behaviour    ║\n"
+                "║  and whether calibration is genuinely improving p_weighted.     ║\n"
+                "╚══════════════════════════════════════════════════════════════════╝",
+                proposed.mean(), stacker.mean(), mean_vs_stack,
+                str((proposed - stacker).round(4)),
+            )
+            self.manifest.register(
+                "integrity_warning",
+                self.artifact_dir / "INTEGRITY_WARNING.txt",
+                "Ensemble failed to beat plain stacker on macro F1",
+                produced_by="fold_runner",
+                metadata={
+                    "p_final_mean": round(float(proposed.mean()), 6),
+                    "p_stack_mean": round(float(stacker.mean()), 6),
+                    "diff": round(float(mean_vs_stack), 6),
+                },
+            )
+            # Write a plain-text warning file so it is visible in the artifact dir
+            warning_txt = (
+                f"INTEGRITY WARNING\n"
+                f"p_final mean macro_F1 = {proposed.mean():.6f}\n"
+                f"p_stack mean macro_F1 = {stacker.mean():.6f}\n"
+                f"Difference = {mean_vs_stack:.6f} (ensemble failed to beat stacker)\n"
+            )
+            (Path(self.artifact_dir) / "INTEGRITY_WARNING.txt").write_text(
+                warning_txt, encoding="utf-8"
+            )
+        else:
+            logger.info(
+                "Integrity check PASSED: p_final (%.4f) beats p_stack (%.4f) "
+                "by %.4f macro F1 over %d outer folds.",
+                proposed.mean(), stacker.mean(), mean_vs_stack, len(proposed),
+            )
+            if mean_vs_wa is not None and mean_vs_wa < 0:
+                logger.warning(
+                    "Note: p_final (%.4f) does not beat p_weighted (%.4f) — "
+                    "the stacker path may be dominating gating.",
+                    proposed.mean(), wa.mean(),
+                )
+
+    def _build_base_models(
+        self,
+        X_sel: pd.DataFrame,
+        y: np.ndarray,
+        fold_idx,   # int for outer folds, "final" for full-training refit
+    ) -> list:
+        """Build base models, optionally running HP search first.
+
+        When hp_search.enabled is True in the config, RandomizedSearchCV is
+        run on (X_sel, y) inside this outer fold before model construction.
+        Tuned parameters are saved to artifacts/fold_{fold_idx}/hp_search_results.json
+        and registered with the manifest.
+        """
+        hp_cfg = self.config.get("hp_search", {})
+        if not hp_cfg.get("enabled", False):
+            return build_default_models()
+
+        from src.models.tuner import HyperparameterTuner
+        tuner = HyperparameterTuner(
+            n_iter=hp_cfg.get("n_iter", 20),
+            n_cv=hp_cfg.get("n_cv", 3),
+            scoring=hp_cfg.get("scoring", "f1_macro"),
+        )
+        logger.info(
+            "Fold %d: Running HP search (n_iter=%d, n_cv=%d) on %d samples, %d features.",
+            fold_idx, tuner.n_iter, tuner.n_cv, len(y), X_sel.shape[1],
+        )
+        best_params = tuner.tune_all(X_sel, y, n_classes=self._n_classes)
+
+        # Persist tuned parameters as a traceable artifact
+        fold_dir = Path(self.artifact_dir) / f"fold_{fold_idx}"
+        fold_dir.mkdir(parents=True, exist_ok=True)
+        hp_path = fold_dir / "hp_search_results.json"
+        save_json(best_params, hp_path)
+        self.manifest.register(
+            f"hp_search_fold{fold_idx}", hp_path,
+            "Tuned base-model hyperparameters from RandomizedSearchCV",
+            produced_by="HyperparameterTuner",
+            metadata={"fold": fold_idx, "n_iter": tuner.n_iter, "n_cv": tuner.n_cv},
+        )
+        logger.info("Fold %d: HP search complete. Tuned params: %s", fold_idx, best_params)
+        return build_models_from_params(best_params)
+
     def _train_final_ensemble(
         self,
         X_train: pd.DataFrame,
@@ -227,6 +352,7 @@ class FoldRunner:
             k_grid=self.config.get("k_grid", None),
             n_inner_folds=self.config.get("n_inner_folds", 3),
             use_stability_weighting=not self.ablation.get("no_stability_weighting", False),
+            active_selector_names=self.config.get("selector_names"),
         )
         sel_result = selector.fit(X_eng, y_train)
 
@@ -238,7 +364,7 @@ class FoldRunner:
             base_cols = [c for c in FEATURE_COLS if c in X_sel.columns]
             X_sel = X_sel[base_cols]
 
-        base_models = build_default_models()
+        base_models = self._build_base_models(X_sel, y_train, fold_idx="final")
         combiner = EnsembleCombiner(
             base_models=base_models,
             n_classes=self._n_classes,

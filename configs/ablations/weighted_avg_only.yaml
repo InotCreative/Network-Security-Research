@@ -1,0 +1,24 @@
+# Ablation: weighted-average path only  (β fixed to 0.0 → p_final = p_weighted)
+#
+# Answers: "Does the stacker add anything over calibrated weighted averaging?"
+# Compare p_final here against p_final in no_gate (β=0.5),
+# stacker_only (β=1.0), and the full learned-gate system.
+task: multiclass
+global_seed: 42
+train_path: data/UNSW_NB15_training-set.csv
+test_path: data/UNSW_NB15_testing-set.csv
+artifact_dir: artifacts
+reports_dir: reports
+n_outer_folds: 5
+n_oof_splits: 7
+n_inner_folds: 3
+k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 57, 60]
+gate_model: auto
+ablation:
+  no_calibration: false
+  no_gate: false
+  no_feature_selection: false
+  no_engineered_features: false
+  simplified_meta_features: false
+  no_stability_weighting: false
+  fixed_beta: 0.0       # p_final = 0.0*p_stack + 1.0*p_weighted = p_weighted

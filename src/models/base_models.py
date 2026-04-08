@@ -346,3 +346,28 @@ ALL_MODEL_CLASSES = {
 def build_default_models() -> list:
     """Return one instance of each base learner with default hyperparameters."""
     return [cls() for cls in ALL_MODEL_CLASSES.values()]
+
+
+def build_models_from_params(best_params: dict) -> list:
+    """Return base learners instantiated from tuned hyperparameters.
+
+    Parameters
+    ----------
+    best_params:
+        Dict mapping model_name → kwargs dict as returned by
+        HyperparameterTuner.tune_all(). Missing models fall back to defaults.
+    """
+    models = []
+    for name, cls in ALL_MODEL_CLASSES.items():
+        params = best_params.get(name, {})
+        try:
+            models.append(cls(**params))
+        except TypeError as exc:
+            # Guard against unexpected param keys from a stale artifact
+            import logging
+            logging.getLogger(__name__).warning(
+                "Could not instantiate %s with tuned params %s (%s). "
+                "Falling back to defaults.", name, params, exc
+            )
+            models.append(cls())
+    return models

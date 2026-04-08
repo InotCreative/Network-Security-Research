@@ -90,11 +90,13 @@ class ConsensusSelector:
         n_inner_folds: int = 3,
         surrogate_n_estimators: int = 50,
         use_stability_weighting: bool = True,
+        active_selector_names: Optional[List[str]] = None,
     ) -> None:
         self.k_grid = k_grid or DEFAULT_K_GRID
         self.n_inner_folds = n_inner_folds
         self.surrogate_n_estimators = surrogate_n_estimators
         self.use_stability_weighting = use_stability_weighting
+        self.active_selector_names = active_selector_names  # None = all selectors
         self._result: Optional[SelectionResult] = None
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -125,7 +127,12 @@ class ConsensusSelector:
         n_features = X_arr.shape[1]
         y_arr = np.asarray(y)
 
-        selectors = build_selectors()
+        selectors = build_selectors(names=self.active_selector_names)
+        if self.active_selector_names:
+            logger.info(
+                "ConsensusSelector: using %d selector(s): %s",
+                len(selectors), [s.name for s in selectors],
+            )
         inner_skf = StratifiedKFold(
             n_splits=self.n_inner_folds,
             shuffle=True,

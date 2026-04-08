@@ -1,0 +1,33 @@
+# Ablation: single feature selector (mutual information only)
+#
+# Answers: "Does consensus across four heterogeneous selectors add value
+# over using the single best standalone selector (mutual information)?"
+#
+# All other components (calibration, gate, engineered features, stability
+# weighting across inner folds) are left unchanged. Only selector_names
+# is restricted to one method.
+#
+# Mutual information is chosen as the single selector because it is:
+#   (a) non-parametric and model-agnostic,
+#   (b) well-established in the feature-selection literature,
+#   (c) commonly used as a standalone baseline in NIDS papers.
+task: multiclass
+global_seed: 42
+train_path: data/UNSW_NB15_training-set.csv
+test_path: data/UNSW_NB15_testing-set.csv
+artifact_dir: artifacts
+reports_dir: reports
+n_outer_folds: 5
+n_oof_splits: 7
+n_inner_folds: 3
+k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 57, 60]
+gate_model: auto
+selector_names: ["mutual_info"]   # restrict to one selector; compare vs all four
+ablation:
+  no_calibration: false
+  no_gate: false
+  no_feature_selection: false
+  no_engineered_features: false
+  simplified_meta_features: false
+  no_stability_weighting: false
+  fixed_beta: null

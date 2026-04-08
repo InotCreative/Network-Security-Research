@@ -3,15 +3,23 @@
 # run_all.sh — Master experiment script for UNSW-NB15 Ensemble IDS
 #
 # Runs experiments in order:
-#   1. Test suite (smoke + unit + leakage)
-#   2. Binary sanity check              (3-fold, ~15 min)
-#   3. Multiclass main experiment       (5-fold, ~2-3 hr)
-#   4. Ablation: no_calibration         (5-fold)
-#   5. Ablation: no_gate                (5-fold)
-#   6. Ablation: no_feature_selection   (5-fold)
-#   7. Ablation: no_engineered_features (5-fold)
-#   8. Ablation: simplified_meta_features (5-fold)
-#   9. Ablation: no_stability_weighting   (5-fold)
+#   1.  Test suite (smoke + unit + leakage)
+#   2.  Binary sanity check                    (3-fold, ~15 min)
+#   3.  Multiclass main experiment             (5-fold, ~2-3 hr)
+#   4.  Ablation: no_calibration              (5-fold)
+#   5.  Ablation: no_gate                     (5-fold, β=0.5 fixed)
+#   6.  Ablation: stacker_only                (5-fold, β=1.0 fixed)
+#   7.  Ablation: weighted_avg_only           (5-fold, β=0.0 fixed)
+#   8.  Ablation: no_feature_selection        (5-fold)
+#   9.  Ablation: no_engineered_features      (5-fold)
+#   10. Ablation: simplified_meta_features    (5-fold)
+#   11. Ablation: no_stability_weighting      (5-fold)
+#   12. Ablation: single_selector             (5-fold, mutual_info only)
+#
+# Ablations 5–7 together answer: "Which mixing strategy is best?"
+#   β=1.0 (stacker only) vs β=0.5 (equal) vs β=0.0 (WA only) vs learned β.
+#
+# Ablation 12 answers: "Does consensus of 4 selectors beat one selector?"
 #
 # Usage:
 #   bash run_all.sh               # full suite
@@ -137,19 +145,26 @@ run_experiment "binary_sanity" "configs/binary_sanity.yaml"
 # ── 3. Multiclass main ─────────────────────────────────────────────────────────
 run_experiment "multiclass_main" "configs/multiclass_main.yaml"
 
-# ── 4–9. Ablations ────────────────────────────────────────────────────────────
+# ── 4–12. Ablations ───────────────────────────────────────────────────────────
 if [[ $MAIN_ONLY -eq 0 ]]; then
-  run_experiment "ablation_no_calibration"          "configs/ablations/no_calibration.yaml"
-  run_experiment "ablation_no_gate"                 "configs/ablations/no_gate.yaml"
-  run_experiment "ablation_no_feature_selection"    "configs/ablations/no_feature_selection.yaml"
-  run_experiment "ablation_no_engineered_features"  "configs/ablations/no_engineered_features.yaml"
+  # Component ablations (disable one novel contribution at a time)
+  run_experiment "ablation_no_calibration"           "configs/ablations/no_calibration.yaml"
+  run_experiment "ablation_no_feature_selection"     "configs/ablations/no_feature_selection.yaml"
+  run_experiment "ablation_no_engineered_features"   "configs/ablations/no_engineered_features.yaml"
   run_experiment "ablation_simplified_meta_features" "configs/ablations/simplified_meta_features.yaml"
-  run_experiment "ablation_no_stability_weighting"  "configs/ablations/no_stability_weighting.yaml"
+  run_experiment "ablation_no_stability_weighting"   "configs/ablations/no_stability_weighting.yaml"
+  run_experiment "ablation_single_selector"          "configs/ablations/single_selector.yaml"
+
+  # Path-mixing ablations (answer: which β policy is best?)
+  run_experiment "ablation_stacker_only"             "configs/ablations/stacker_only.yaml"
+  run_experiment "ablation_weighted_avg_only"        "configs/ablations/weighted_avg_only.yaml"
+  run_experiment "ablation_no_gate"                  "configs/ablations/no_gate.yaml"
 else
   warn "--main-only set: skipping ablation experiments."
-  for key in ablation_no_calibration ablation_no_gate ablation_no_feature_selection \
+  for key in ablation_no_calibration ablation_no_feature_selection \
              ablation_no_engineered_features ablation_simplified_meta_features \
-             ablation_no_stability_weighting; do
+             ablation_no_stability_weighting ablation_single_selector \
+             ablation_stacker_only ablation_weighted_avg_only ablation_no_gate; do
     STATUSES["$key"]="SKIPPED"
   done
 fi
@@ -164,9 +179,11 @@ printf "%-45s  %s\n" "-----------------------------------------" "------"
 
 ALL_OK=1
 for key in tests binary_sanity multiclass_main \
-           ablation_no_calibration ablation_no_gate \
+           ablation_no_calibration \
            ablation_no_feature_selection ablation_no_engineered_features \
-           ablation_simplified_meta_features ablation_no_stability_weighting; do
+           ablation_simplified_meta_features ablation_no_stability_weighting \
+           ablation_single_selector \
+           ablation_stacker_only ablation_weighted_avg_only ablation_no_gate; do
   status="${STATUSES[$key]:-SKIPPED}"
   if [[ "$status" == "OK" ]]; then
     printf "%-45s  ${GREEN}%s${RESET}\n" "$key" "$status"
@@ -189,6 +206,20 @@ info "Most recent artifact directories:"
 ls -td artifacts/*/  2>/dev/null | head -8 | while read -r d; do
   echo "    $d"
 done
+
+# ── Ablation aggregation ───────────────────────────────────────────────────────
+# Produces the required ablation_results.csv + comparison plot from CLAUDE.md.
+# Runs even if some experiments failed (reads whatever results exist).
+header "Ablation aggregation"
+if $PYTHON -m src.eval.aggregate_ablations \
+      --artifacts-dir artifacts \
+      --output-dir reports; then
+  success "ablation_results.csv written to reports/"
+  STATUSES["aggregate"]="OK"
+else
+  warn "Ablation aggregation produced warnings (some experiments may not have run yet)."
+  STATUSES["aggregate"]="WARN"
+fi
 
 echo
 if [[ $ALL_OK -eq 1 ]]; then

@@ -23,6 +23,16 @@ k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 57, 60]
 # Gate model: 'ridge' | 'tree' | 'auto'
 gate_model: auto
 
+# Hyperparameter search for base learners
+# When enabled, RandomizedSearchCV runs inside each outer fold on the
+# feature-selected training data. Disabled by default (expensive: adds
+# ~n_iter × n_cv × n_models fitting passes per fold).
+hp_search:
+  enabled: false      # set to true to activate tuning
+  n_iter: 20          # random configurations sampled per model
+  n_cv: 3             # inner stratified-CV folds for the search
+  scoring: f1_macro   # optimisation target (matches paper primary metric)
+
 # Ablation flags (all false for the main experiment)
 ablation:
   no_calibration: false

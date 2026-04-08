@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from sklearn.feature_selection import (
@@ -155,6 +155,29 @@ ALL_SELECTORS = [
     RFESGDSelector,
 ]
 
+SELECTOR_NAMES = {cls().name: cls for cls in ALL_SELECTORS}
 
-def build_selectors() -> List[BaseSelector]:
-    return [cls() for cls in ALL_SELECTORS]
+
+def build_selectors(names: Optional[List[str]] = None) -> List[BaseSelector]:
+    """Return selector instances.
+
+    Parameters
+    ----------
+    names:
+        If None (default), return all four selectors.
+        If a list of selector names is given, return only those selectors
+        in the canonical order (anova_f, mutual_info, rfe_rf, rfe_sgd).
+        This is used by the single_selector ablation to test whether the
+        consensus of four heterogeneous selectors outperforms one alone.
+
+    Valid names: 'anova_f', 'mutual_info', 'rfe_rf', 'rfe_sgd'
+    """
+    if names is None:
+        return [cls() for cls in ALL_SELECTORS]
+    name_set = set(names)
+    unknown = name_set - set(SELECTOR_NAMES)
+    if unknown:
+        raise ValueError(f"Unknown selector names: {unknown}. "
+                         f"Valid: {set(SELECTOR_NAMES)}")
+    # Preserve canonical order
+    return [cls() for cls in ALL_SELECTORS if cls().name in name_set]
