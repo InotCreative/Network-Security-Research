@@ -40,6 +40,30 @@ logger = logging.getLogger(__name__)
 DEFAULT_K_GRID = [8, 12, 16, 20, 24, 30, 36, 42, 50]
 
 
+def _surrogate_ece(y_true: np.ndarray, proba: np.ndarray, n_bins: int = 10) -> float:
+    """Lightweight ECE computation for the surrogate RF.
+
+    Uses max-class confidence binning (same strategy as eval.reliability)
+    but avoids an import to keep the selector self-contained.
+    """
+    confidence = proba.max(axis=1)
+    predictions = np.argmax(proba, axis=1)
+    correctness = (predictions == y_true).astype(float)
+    bin_edges = np.linspace(0.0, 1.0, n_bins + 1)
+    ece = 0.0
+    n = len(y_true)
+    for i in range(n_bins):
+        lo, hi = bin_edges[i], bin_edges[i + 1]
+        mask = (confidence >= lo) & (confidence < hi)
+        if i == n_bins - 1:
+            mask = (confidence >= lo) & (confidence <= hi)
+        n_bin = mask.sum()
+        if n_bin == 0:
+            continue
+        ece += (n_bin / n) * abs(float(correctness[mask].mean()) - float(confidence[mask].mean()))
+    return float(ece)
+
+
 def _jaccard(a: set, b: set) -> float:
     if not a and not b:
         return 1.0
@@ -147,6 +171,10 @@ class ConsensusSelector:
         sel_f1s: Dict[str, Dict[int, List[float]]] = {
             s.name: {k: [] for k in self.k_grid} for s in selectors
         }
+        # selector_name → {k → [inner_ece]} for calibration-aware penalty
+        sel_eces: Dict[str, Dict[int, List[float]]] = {
+            s.name: {k: [] for k in self.k_grid} for s in selectors
+        }
 
         for fold_idx, (tr_idx, val_idx) in enumerate(inner_skf.split(X_arr, y_arr)):
             X_tr, X_val = X_arr[tr_idx], X_arr[val_idx]
@@ -166,12 +194,13 @@ class ConsensusSelector:
                     top_k_set = set(top_k_idx)
                     sel_results[sel.name][k].append(top_k_set)
 
-                    # Quick surrogate RF for inner-fold F1
-                    f1 = self._surrogate_f1(
+                    # Quick surrogate RF for inner-fold F1 and calibration quality
+                    f1, ece = self._surrogate_f1_and_ece(
                         X_tr[:, top_k_idx], y_tr,
                         X_val[:, top_k_idx], y_val,
                     )
                     sel_f1s[sel.name][k].append(f1)
+                    sel_eces[sel.name][k].append(ece)
 
             logger.debug("Consensus inner fold %d/%d done", fold_idx + 1, self.n_inner_folds)
 
@@ -182,7 +211,7 @@ class ConsensusSelector:
         inner_cv_f1s: Dict[str, float] = {}
 
         for sel in selectors:
-            best_f1 = -1.0
+            best_score = -1.0
             best_k_for_sel = self.k_grid[0]
             best_stability = 0.0
 
@@ -191,22 +220,27 @@ class ConsensusSelector:
                     continue
                 sets = sel_results[sel.name][k]
                 f1s = sel_f1s[sel.name][k]
+                eces = sel_eces[sel.name][k]
                 if not sets:
                     continue
                 stability = _mean_pairwise_jaccard(sets)
                 mean_f1 = float(np.mean(f1s)) if f1s else 0.0
-                # Joint criterion: weight by stability only when enabled.
-                # Ablation: use_stability_weighting=False → F1 only (no stability penalty).
-                combined = mean_f1 * (stability if self.use_stability_weighting else 1.0)
-                if combined > best_f1:
-                    best_f1 = combined
+                mean_ece = float(np.mean(eces)) if eces else 0.0
+                # Calibration-aware penalty: penalise feature subsets whose
+                # surrogate model produces poorly calibrated probabilities.
+                # (1 - ECE) ∈ [0, 1]; lower ECE = better calibration = higher weight.
+                cal_penalty = max(1.0 - mean_ece, 1e-9)
+                # Joint criterion: F1 × calibration quality × stability
+                combined = mean_f1 * cal_penalty * (stability if self.use_stability_weighting else 1.0)
+                if combined > best_score:
+                    best_score = combined
                     best_k_for_sel = k
                     best_stability = stability
 
-            selector_weights[sel.name] = max(best_f1, 0.0)
+            selector_weights[sel.name] = max(best_score, 0.0)
             selector_stabilities[sel.name] = best_stability
             selector_best_k[sel.name] = best_k_for_sel
-            inner_cv_f1s[sel.name] = max(best_f1, 0.0)
+            inner_cv_f1s[sel.name] = max(best_score, 0.0)
 
         # ── Aggregate consensus scores ────────────────────────────────────────
         consensus_scores = np.zeros(n_features)
@@ -273,11 +307,12 @@ class ConsensusSelector:
         )
         return self._result
 
-    def _surrogate_f1(
+    def _surrogate_f1_and_ece(
         self,
         X_tr: np.ndarray, y_tr: np.ndarray,
         X_val: np.ndarray, y_val: np.ndarray,
-    ) -> float:
+    ) -> Tuple[float, float]:
+        """Return (macro_f1, ECE) from a quick surrogate RF on the given features."""
         rf = RandomForestClassifier(
             n_estimators=self.surrogate_n_estimators,
             max_depth=8,
@@ -287,4 +322,17 @@ class ConsensusSelector:
         )
         rf.fit(X_tr, y_tr)
         y_pred = rf.predict(X_val)
-        return f1_score(y_val, y_pred, average="macro", zero_division=0)
+        f1 = f1_score(y_val, y_pred, average="macro", zero_division=0)
+        # Calibration quality: ECE from the surrogate's probability output
+        proba = rf.predict_proba(X_val)
+        # Expand to full class space if the surrogate missed rare classes
+        all_classes = np.unique(np.concatenate([y_tr, y_val]))
+        n_all = int(all_classes.max()) + 1 if len(all_classes) > 0 else proba.shape[1]
+        if proba.shape[1] < n_all:
+            expanded = np.zeros((proba.shape[0], n_all))
+            for col_idx, cls in enumerate(rf.classes_):
+                expanded[:, int(cls)] = proba[:, col_idx]
+            row_sums = expanded.sum(axis=1, keepdims=True)
+            proba = expanded / np.where(row_sums == 0, 1.0, row_sums)
+        ece = _surrogate_ece(y_val, proba)
+        return f1, ece

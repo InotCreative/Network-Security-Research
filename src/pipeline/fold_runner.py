@@ -319,7 +319,7 @@ class FoldRunner:
             scoring=hp_cfg.get("scoring", "f1_macro"),
         )
         logger.info(
-            "Fold %d: Running HP search (n_iter=%d, n_cv=%d) on %d samples, %d features.",
+            "Fold %s: Running HP search (n_iter=%d, n_cv=%d) on %d samples, %d features.",
             fold_idx, tuner.n_iter, tuner.n_cv, len(y), X_sel.shape[1],
         )
         best_params = tuner.tune_all(X_sel, y, n_classes=self._n_classes)
@@ -333,9 +333,9 @@ class FoldRunner:
             f"hp_search_fold{fold_idx}", hp_path,
             "Tuned base-model hyperparameters from RandomizedSearchCV",
             produced_by="HyperparameterTuner",
-            metadata={"fold": fold_idx, "n_iter": tuner.n_iter, "n_cv": tuner.n_cv},
+            metadata={"fold": str(fold_idx), "n_iter": tuner.n_iter, "n_cv": tuner.n_cv},
         )
-        logger.info("Fold %d: HP search complete. Tuned params: %s", fold_idx, best_params)
+        logger.info("Fold %s: HP search complete. Tuned params: %s", fold_idx, best_params)
         return build_models_from_params(best_params)
 
     def _train_final_ensemble(

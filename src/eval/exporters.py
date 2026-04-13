@@ -25,6 +25,7 @@ import pandas as pd
 
 from src.eval.metrics import confusion_matrix_dict
 from src.eval.plots import (
+    plot_agreement_error_slices,
     plot_confidence_histogram,
     plot_confusion_matrix,
     plot_macro_f1_comparison,
@@ -96,6 +97,7 @@ class ResultsExporter:
         self._export_statistical_tests()
         self._export_test_metrics(class_names)
         self._export_calibration_report(class_names)
+        self._export_agreement_error_slices(class_names)
         logger.info("All artifacts exported to %s", self.artifact_dir)
 
     def export_feature_artifacts(
@@ -324,3 +326,94 @@ class ResultsExporter:
                     "Reliability diagram",
                     produced_by="exporters",
                 )
+
+    def _export_agreement_error_slices(self, class_names: List[str]) -> None:
+        """Error slices by agreement level (design doc §10).
+
+        For the test-set p_final predictions, bin samples by the number of
+        base models that agree on the predicted class, then report per-bin
+        accuracy and macro F1.  This reveals whether the gate adds more value
+        when base models disagree.
+        """
+        if not self._final_probas or self._final_y is None:
+            return
+
+        # Need base-model predictions to compute agreement
+        base_methods = [k for k in self._final_probas if k.startswith("cal_")]
+        if len(base_methods) < 2:
+            # Fall back to raw base models if calibrated ones are absent
+            base_methods = [k for k in self._final_probas if k.startswith("base_")]
+        if len(base_methods) < 2:
+            return
+
+        n_models = len(base_methods)
+        y_true = self._final_y
+        n = len(y_true)
+
+        # Compute per-sample vote agreement (fraction of models agreeing on mode)
+        votes = np.stack(
+            [np.argmax(self._final_probas[m], axis=1) for m in base_methods],
+            axis=1,
+        )  # (n, M)
+        from scipy.stats import mode as scipy_mode
+        mode_result = scipy_mode(votes, axis=1, keepdims=False)
+        mode_counts = mode_result.count.ravel()
+        agreement_frac = mode_counts / n_models  # ∈ (0, 1]
+
+        # Define agreement bins
+        bins = [
+            ("low", 0.0, 0.5),       # < half the models agree
+            ("medium", 0.5, 0.75),    # half to three-quarters agree
+            ("high", 0.75, 1.01),     # more than three-quarters agree (1.01 to include 1.0)
+        ]
+
+        from sklearn.metrics import accuracy_score, f1_score
+        p_final = self._final_probas.get("p_final")
+        if p_final is None:
+            return
+        y_pred_final = np.argmax(p_final, axis=1)
+
+        slice_rows = []
+        for label, lo, hi in bins:
+            mask = (agreement_frac >= lo) & (agreement_frac < hi)
+            n_bin = int(mask.sum())
+            if n_bin == 0:
+                slice_rows.append({
+                    "agreement_level": label,
+                    "n_samples": 0,
+                    "accuracy": None,
+                    "macro_f1": None,
+                    "frac_of_total": 0.0,
+                })
+                continue
+            acc = float(accuracy_score(y_true[mask], y_pred_final[mask]))
+            mf1 = float(f1_score(
+                y_true[mask], y_pred_final[mask],
+                average="macro", zero_division=0,
+            ))
+            slice_rows.append({
+                "agreement_level": label,
+                "n_samples": n_bin,
+                "accuracy": round(acc, 6),
+                "macro_f1": round(mf1, 6),
+                "frac_of_total": round(n_bin / n, 4),
+            })
+
+        slice_df = pd.DataFrame(slice_rows)
+        csv_path = self.artifact_dir / "agreement_error_slices.csv"
+        slice_df.to_csv(csv_path, index=False)
+        save_json(slice_rows, self.artifact_dir / "agreement_error_slices.json")
+        self.manifest.register(
+            "agreement_error_slices", csv_path,
+            "Error slices by base-model agreement level (design doc §10)",
+            produced_by="exporters",
+        )
+
+        # Plot
+        plot_path = self.reports_dir / "agreement_error_slices.png"
+        plot_agreement_error_slices(slice_rows, plot_path)
+
+        logger.info(
+            "Agreement error slices:\n%s",
+            slice_df.to_string(index=False),
+        )

@@ -79,3 +79,40 @@ def test_vote_entropy_range():
     votes = np.array([[10, 0, 0], [5, 5, 0], [4, 3, 3]])
     ve = vote_entropy(votes.astype(float), n_models=10)
     assert np.all(ve >= 0) and np.all(ve <= 1 + 1e-9)
+
+
+def test_probability_normalization():
+    """Rows of build_meta_features input must not affect output row sums.
+
+    When calibrated_probas rows sum to 1, the full-probability sub-block in
+    the meta-feature matrix should also sum to 1 per model.
+    """
+    rng = np.random.default_rng(99)
+    n, C, M = 30, 5, 3
+    probas = []
+    for _ in range(M):
+        p = rng.dirichlet(np.ones(C), size=n)
+        # Verify input is normalised
+        np.testing.assert_allclose(p.sum(axis=1), 1.0, atol=1e-7)
+        probas.append(p)
+    meta = build_meta_features(probas)
+    # The first M*C columns are the full probability vectors
+    for m_idx in range(M):
+        block = meta[:, m_idx * C:(m_idx + 1) * C]
+        np.testing.assert_allclose(
+            block.sum(axis=1), 1.0, atol=1e-7,
+            err_msg=f"Probability block for model {m_idx} rows don't sum to 1",
+        )
+
+
+def test_simplified_meta_features_exclude_probabilities(fake_probas):
+    """Simplified meta-features should NOT contain full probability vectors."""
+    probas, n, C, M = fake_probas
+    meta_full = build_meta_features(probas, simplified=False)
+    meta_simple = build_meta_features(probas, simplified=True)
+    # simplified should have M*C fewer columns (the probability vectors)
+    expected_diff = M * C
+    assert meta_full.shape[1] - meta_simple.shape[1] == expected_diff, (
+        f"Expected {expected_diff} fewer columns in simplified mode, "
+        f"got {meta_full.shape[1] - meta_simple.shape[1]}"
+    )

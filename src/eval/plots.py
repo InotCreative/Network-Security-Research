@@ -171,3 +171,37 @@ def plot_confidence_histogram(
     ax.set_title(f"Confidence histogram — {model_name}")
     ax.legend(fontsize=8)
     return save_fig(fig, out_path)
+
+
+def plot_agreement_error_slices(
+    slice_rows: List[Dict],
+    out_path: Path,
+) -> Path:
+    """Grouped bar chart: accuracy and macro F1 by agreement level."""
+    labels = [r["agreement_level"] for r in slice_rows if r["n_samples"] > 0]
+    accs = [r["accuracy"] for r in slice_rows if r["n_samples"] > 0]
+    f1s = [r["macro_f1"] for r in slice_rows if r["n_samples"] > 0]
+    counts = [r["n_samples"] for r in slice_rows if r["n_samples"] > 0]
+
+    if not labels:
+        fig, ax = plt.subplots(figsize=FIGSIZE_SINGLE)
+        ax.text(0.5, 0.5, "No data", ha="center", va="center")
+        return save_fig(fig, out_path)
+
+    x = np.arange(len(labels))
+    w = 0.3
+    fig, ax1 = plt.subplots(figsize=FIGSIZE_SINGLE)
+
+    bars1 = ax1.bar(x - w / 2, accs, w, label="Accuracy", color="steelblue")
+    bars2 = ax1.bar(x + w / 2, f1s, w, label="Macro F1", color="darkorange")
+
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([f"{l}\n(n={c})" for l, c in zip(labels, counts)], fontsize=9)
+    ax1.set_ylim(0, 1.05)
+    ax1.set_ylabel("Score")
+    ax1.set_title("Error slices by base-model agreement level")
+    ax1.legend(fontsize=8)
+    ax1.bar_label(bars1, fmt="%.3f", padding=2, fontsize=7)
+    ax1.bar_label(bars2, fmt="%.3f", padding=2, fontsize=7)
+
+    return save_fig(fig, out_path)
