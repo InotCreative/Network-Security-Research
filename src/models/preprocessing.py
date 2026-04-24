@@ -47,12 +47,12 @@ _RARE_PROTO_THRESHOLD = 50
 _RARE_CAT_THRESHOLD = 5
 
 
-def _numeric_cols_present(columns: List[str]) -> List[str]:
-    return [c for c in NUMERIC_COLS if c in columns]
+def _numeric_cols_present(columns: List[str], ref_numeric: List[str]) -> List[str]:
+    return [c for c in ref_numeric if c in columns]
 
 
-def _cat_cols_present(columns: List[str]) -> List[str]:
-    return [c for c in CATEGORICAL_COLS if c in columns]
+def _cat_cols_present(columns: List[str], ref_cat: List[str]) -> List[str]:
+    return [c for c in ref_cat if c in columns]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -60,15 +60,30 @@ def _cat_cols_present(columns: List[str]) -> List[str]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 class TreePreprocessor:
-    """Ordinal-encode categoricals, median-impute numerics. No scaling."""
+    """Ordinal-encode categoricals, median-impute numerics. No scaling.
 
-    def __init__(self) -> None:
+    Parameters
+    ----------
+    numeric_cols, categorical_cols:
+        Column lists from the active dataset adapter. When omitted, fall back
+        to the UNSW-NB15 globals for backward compatibility.
+    """
+
+    def __init__(
+        self,
+        numeric_cols: Optional[List[str]] = None,
+        categorical_cols: Optional[List[str]] = None,
+    ) -> None:
+        self._numeric_cols = list(numeric_cols) if numeric_cols is not None else list(NUMERIC_COLS)
+        self._categorical_cols = (
+            list(categorical_cols) if categorical_cols is not None else list(CATEGORICAL_COLS)
+        )
         self._pipeline: Optional[Pipeline] = None
         self._feature_names_out: Optional[List[str]] = None
 
     def fit(self, X: pd.DataFrame) -> "TreePreprocessor":
-        num_cols = _numeric_cols_present(X.columns.tolist())
-        cat_cols = _cat_cols_present(X.columns.tolist())
+        num_cols = _numeric_cols_present(X.columns.tolist(), self._numeric_cols)
+        cat_cols = _cat_cols_present(X.columns.tolist(), self._categorical_cols)
         # Also pass through any engineered (numeric) columns not in NUMERIC_COLS
         extra_num = [c for c in X.columns if c not in num_cols and c not in cat_cols]
 
@@ -120,21 +135,33 @@ class TreePreprocessor:
 class LinearPreprocessor:
     """OHE for categoricals (with rare grouping), RobustScaler for numerics."""
 
-    def __init__(self, scaler: str = "robust") -> None:
+    def __init__(
+        self,
+        scaler: str = "robust",
+        numeric_cols: Optional[List[str]] = None,
+        categorical_cols: Optional[List[str]] = None,
+    ) -> None:
         """
         Parameters
         ----------
         scaler:
             'robust' (default, recommended for KNN and linear models on skewed data)
             'standard' (zero-mean unit-variance)
+        numeric_cols, categorical_cols:
+            Column lists from the active dataset adapter. When omitted, fall
+            back to the UNSW-NB15 globals for backward compatibility.
         """
         self._scaler_type = scaler
+        self._numeric_cols = list(numeric_cols) if numeric_cols is not None else list(NUMERIC_COLS)
+        self._categorical_cols = (
+            list(categorical_cols) if categorical_cols is not None else list(CATEGORICAL_COLS)
+        )
         self._pipeline: Optional[Pipeline] = None
         self._feature_names_out: Optional[List[str]] = None
 
     def fit(self, X: pd.DataFrame) -> "LinearPreprocessor":
-        num_cols = _numeric_cols_present(X.columns.tolist())
-        cat_cols = _cat_cols_present(X.columns.tolist())
+        num_cols = _numeric_cols_present(X.columns.tolist(), self._numeric_cols)
+        cat_cols = _cat_cols_present(X.columns.tolist(), self._categorical_cols)
         extra_num = [c for c in X.columns if c not in num_cols and c not in cat_cols]
         all_num = num_cols + extra_num
 
@@ -195,24 +222,45 @@ class LinearPreprocessor:
 class KNNPreprocessor(LinearPreprocessor):
     """Identical to LinearPreprocessor; alias for clarity in model cards."""
 
-    def __init__(self) -> None:
-        super().__init__(scaler="robust")
+    def __init__(
+        self,
+        numeric_cols: Optional[List[str]] = None,
+        categorical_cols: Optional[List[str]] = None,
+    ) -> None:
+        super().__init__(
+            scaler="robust",
+            numeric_cols=numeric_cols,
+            categorical_cols=categorical_cols,
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Factory
 # ──────────────────────────────────────────────────────────────────────────────
 
-def get_preprocessor(family: str) -> "TreePreprocessor | LinearPreprocessor | KNNPreprocessor":
+def get_preprocessor(
+    family: str,
+    numeric_cols: Optional[List[str]] = None,
+    categorical_cols: Optional[List[str]] = None,
+) -> "TreePreprocessor | LinearPreprocessor | KNNPreprocessor":
     """Return an unfitted preprocessor for the requested model family.
 
     family: 'tree' | 'linear' | 'knn'
+
+    `numeric_cols` / `categorical_cols` can be supplied by the pipeline from the
+    active dataset adapter. When omitted, the UNSW-NB15 globals are used.
     """
+    kwargs = {}
+    if numeric_cols is not None:
+        kwargs["numeric_cols"] = numeric_cols
+    if categorical_cols is not None:
+        kwargs["categorical_cols"] = categorical_cols
+
     if family == "tree":
-        return TreePreprocessor()
+        return TreePreprocessor(**kwargs)
     elif family == "linear":
-        return LinearPreprocessor()
+        return LinearPreprocessor(**kwargs)
     elif family == "knn":
-        return KNNPreprocessor()
+        return KNNPreprocessor(**kwargs)
     else:
         raise ValueError(f"Unknown preprocessor family: {family!r}. Use 'tree', 'linear', or 'knn'.")

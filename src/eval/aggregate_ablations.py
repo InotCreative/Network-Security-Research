@@ -74,14 +74,15 @@ DISPLAY_ORDER: List[str] = [
 # For ablation experiments this is still p_final, which reflects the modified design.
 PRIMARY_METHOD = "p_final"
 
-# Metrics to include in the output table (from results_main_multiclass_summary.json)
+# Metrics to include in the output table (from results_main_multiclass_summary.json).
+# Keys must match exactly what multiclass_metrics() emits in src/eval/metrics.py.
 METRICS = [
     "macro_f1",
     "weighted_f1",
     "accuracy",
     "log_loss",
     "ece",
-    "roc_auc",
+    "roc_auc_macro_ovr",
 ]
 
 
@@ -109,8 +110,14 @@ def parse_manifest(run_dir: Path) -> Optional[dict]:
 
 
 def config_stem(config_path: str) -> str:
-    """Extract the config file stem (without .yaml) from a path string."""
-    return Path(config_path).stem
+    """Extract the config file stem (without extension) from a path string.
+
+    Handles both POSIX and Windows separators, since manifests recorded on
+    Windows store paths with backslashes that pathlib.PurePosixPath does not
+    split on.
+    """
+    normalised = config_path.replace("\\", "/")
+    return Path(normalised).stem
 
 
 def load_primary_metrics(run_dir: Path, method: str = PRIMARY_METHOD) -> Optional[dict]:
@@ -212,6 +219,109 @@ def aggregate(
             rows.append(seen[stem][1])
 
     return pd.DataFrame(rows)
+
+
+# ── Cross-run integrity guard ──────────────────────────────────────────────────
+# The per-run guard in fold_runner only checks `p_final ≥ p_stack` inside a
+# single run. A second failure mode is an *ablation* beating the full system —
+# e.g., `no_calibration` with mean macro F1 > `multiclass_main` mean macro F1.
+# When this happens we write `ABLATION_WARNING.txt` next to the ablation CSV
+# so it is visible in code review and manuscript preparation.
+
+def check_ablation_integrity(
+    df: pd.DataFrame,
+    output_dir: Path,
+    *,
+    reference_stem: str = "multiclass_main",
+    metric: str = "macro_f1",
+) -> Optional[Path]:
+    """Warn when any ablation's mean metric exceeds the full system by more
+    than one combined-std.
+
+    Returns the path to the warning file if written, else None.
+    """
+    if df.empty:
+        return None
+
+    mean_col = f"{metric}_mean"
+    std_col = f"{metric}_std"
+    if mean_col not in df.columns:
+        return None
+
+    ref_rows = df[df["experiment"] == reference_stem]
+    if ref_rows.empty:
+        logger.debug("No %s row found — skipping cross-run integrity check.", reference_stem)
+        return None
+    ref_row = ref_rows.iloc[0]
+    ref_mean = float(ref_row[mean_col])
+    ref_std = float(ref_row[std_col] or 0.0)
+
+    offenders: List[dict] = []
+    for _, row in df.iterrows():
+        stem = row["experiment"]
+        if stem == reference_stem:
+            continue
+        # Skip experiments that are intentionally a different task (e.g. binary)
+        if stem == "binary_sanity":
+            continue
+        cand_mean = row.get(mean_col)
+        cand_std = row.get(std_col) or 0.0
+        if cand_mean is None:
+            continue
+        # Joint uncertainty (conservative, assumes independence across folds)
+        import math
+        combined_std = math.sqrt(ref_std ** 2 + (cand_std or 0.0) ** 2)
+        delta = float(cand_mean) - ref_mean
+        if delta > combined_std and delta > 0:
+            offenders.append({
+                "experiment": stem,
+                "label": row.get("label", stem),
+                "mean": round(float(cand_mean), 6),
+                "std": round(float(cand_std or 0.0), 6),
+                "delta_vs_reference": round(delta, 6),
+                "combined_std": round(combined_std, 6),
+            })
+
+    if not offenders:
+        logger.info(
+            "Cross-run integrity PASSED: no ablation exceeds %s mean %s (%.4f ± %.4f) "
+            "by more than combined std.",
+            reference_stem, metric, ref_mean, ref_std,
+        )
+        return None
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    warning_path = output_dir / "ABLATION_WARNING.txt"
+
+    lines = [
+        "ABLATION INTEGRITY WARNING",
+        "",
+        f"Reference: {reference_stem} {metric} = {ref_mean:.6f} ± {ref_std:.6f}",
+        "",
+        "The following ablations exceed the full system by more than the combined",
+        "outer-fold standard deviation. Investigate before publication — the component",
+        "being ablated may not be net-positive for this metric at this sample size.",
+        "",
+    ]
+    for o in offenders:
+        lines.append(
+            f"  - {o['label']:<40s} "
+            f"{metric} = {o['mean']:.4f} ± {o['std']:.4f}   "
+            f"Δ = +{o['delta_vs_reference']:.4f}  (combined σ = {o['combined_std']:.4f})"
+        )
+    lines.append("")
+    lines.append(
+        "Note: this warning is informational. Ablations that beat the full system "
+        "reveal real scientific findings that should be reported honestly in the paper."
+    )
+
+    warning_path.write_text("\n".join(lines), encoding="utf-8")
+    logger.warning(
+        "ABLATION WARNING: %d ablation(s) beat %s on %s. Details → %s",
+        len(offenders), reference_stem, metric, warning_path,
+    )
+    return warning_path
 
 
 # ── Output writers ─────────────────────────────────────────────────────────────
@@ -336,6 +446,7 @@ def main(artifacts_dir: str = "artifacts", output_dir: str = "reports") -> None:
 
     csv_path, json_path = write_ablation_results(df, out_dir)
     plot_path = write_ablation_plot(df, out_dir)
+    check_ablation_integrity(df, out_dir)
 
     print(f"Outputs:")
     print(f"  CSV:  {csv_path}")

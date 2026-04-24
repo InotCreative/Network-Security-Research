@@ -22,9 +22,11 @@
 # Ablation 12 answers: "Does consensus of 4 selectors beat one selector?"
 #
 # Usage:
-#   pwsh run_all.ps1               # full suite
+#   pwsh run_all.ps1               # full UNSW-NB15 suite
 #   pwsh run_all.ps1 -SkipTests    # skip pytest, run experiments only
 #   pwsh run_all.ps1 -MainOnly     # tests + multiclass main only (no ablations)
+#   pwsh run_all.ps1 -WithCic      # also run CIC-IDS2017 generalisation experiment
+#                                  #   (requires data/CIC-IDS2017/*.csv)
 #
 # Artifacts land in:  artifacts/<run_id>/
 # Reports land in:    reports/<run_id>/
@@ -33,6 +35,7 @@
 param(
     [switch]$SkipTests,
     [switch]$MainOnly,
+    [switch]$WithCic,
     [switch]$Help
 )
 
@@ -87,6 +90,17 @@ foreach ($f in $dataFiles) {
     }
 }
 Write-Success "Data files found."
+
+# CIC-IDS2017 pre-flight (only when -WithCic was requested)
+$CIC_DATA_PATH = "data/CIC-IDS2017"
+if ($WithCic) {
+    if (-not (Test-Path $CIC_DATA_PATH)) {
+        Write-Error-Custom "-WithCic set but '$CIC_DATA_PATH' not found."
+        Write-Error-Custom "Place the CIC-IDS2017 CSVs under data/CIC-IDS2017/ (or a single merged CSV at that path)."
+        exit 1
+    }
+    Write-Success "CIC-IDS2017 data path found: $CIC_DATA_PATH"
+}
 
 # ── Tracking ───────────────────────────────────────────────────────────────────
 $SUITE_START = Get-Date
@@ -153,6 +167,13 @@ Run-Experiment "binary_sanity" "configs/binary_sanity.yaml"
 # ── 3. Multiclass main ─────────────────────────────────────────────────────────
 Run-Experiment "multiclass_main" "configs/multiclass_main.yaml"
 
+# ── 3b. CIC-IDS2017 generalisation (optional) ──────────────────────────────────
+if ($WithCic) {
+    Run-Experiment "multiclass_main_cic" "configs/multiclass_main_cic.yaml"
+} else {
+    $STATUSES["multiclass_main_cic"] = "SKIPPED"
+}
+
 # ── 4–12. Ablations ───────────────────────────────────────────────────────────
 if (-not $MainOnly) {
     # Component ablations (disable one novel contribution at a time)
@@ -190,7 +211,7 @@ Write-Host ("{0,-45}  {1}" -f "-----------------------------------------", "----
 
 $ALL_OK = $true
 $experimentKeys = @(
-    "tests", "binary_sanity", "multiclass_main",
+    "tests", "binary_sanity", "multiclass_main", "multiclass_main_cic",
     "ablation_no_calibration",
     "ablation_no_feature_selection", "ablation_no_engineered_features",
     "ablation_simplified_meta_features", "ablation_no_stability_weighting",

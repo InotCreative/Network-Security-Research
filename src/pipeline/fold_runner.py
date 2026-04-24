@@ -28,8 +28,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 
-from src.data.loader import load_official_splits
-from src.data.schema import MULTICLASS_LABELS
+from src.data.adapters import get_adapter
 from src.ensemble.combiner import EnsembleCombiner
 from src.eval.exporters import ResultsExporter
 from src.eval.metrics import multiclass_metrics, sanity_check_accuracy
@@ -64,14 +63,42 @@ class FoldRunner:
         self.ablation: dict = config.get("ablation", {})
         self.artifact_dir = Path(config.get("artifact_dir", "artifacts"))
         self.reports_dir = Path(config.get("reports_dir", "reports"))
-        self._class_names = MULTICLASS_LABELS if self.task == "multiclass" else ["Normal", "Attack"]
+
+        # Dataset adapter (default: UNSW-NB15 for backward compat)
+        dataset_key = config.get("dataset", "unsw_nb15")
+        self.adapter = get_adapter(dataset_key)
+        self._numeric_cols = list(self.adapter.schema.numeric_cols)
+        self._categorical_cols = list(self.adapter.schema.categorical_cols)
+        self._feature_cols = list(self.adapter.schema.feature_cols)
+
+        self._class_names = (
+            self.adapter.class_names if self.task == "multiclass" else ["Normal", "Attack"]
+        )
         self._n_classes = len(self._class_names)
 
     def run(self) -> None:
         """Execute full outer CV + final test evaluation."""
-        X_train, y_train, X_test, y_test = load_official_splits(
-            train_path=self.config.get("train_path", "data/UNSW_NB15_training-set.csv"),
-            test_path=self.config.get("test_path", "data/UNSW_NB15_testing-set.csv"),
+        # Dataset path defaults: UNSW if user hasn't set them (backward compat).
+        default_train = (
+            "data/UNSW_NB15_training-set.csv"
+            if self.adapter.name == "unsw_nb15"
+            else None
+        )
+        default_test = (
+            "data/UNSW_NB15_testing-set.csv"
+            if self.adapter.name == "unsw_nb15"
+            else None
+        )
+        train_path = self.config.get("train_path", default_train)
+        test_path = self.config.get("test_path", default_test)
+        if train_path is None or test_path is None:
+            raise ValueError(
+                f"dataset={self.adapter.name!r} requires explicit train_path and "
+                "test_path in the config (no default available)."
+            )
+        X_train, y_train, X_test, y_test = self.adapter.load(
+            train_path=train_path,
+            test_path=test_path,
             task=self.task,
         )
 
@@ -126,7 +153,7 @@ class FoldRunner:
         """Train and evaluate all methods for one outer fold."""
 
         # ── 1. Feature engineering (fit on outer_train only) ──────────────────
-        eng = FeatureEngineer()
+        eng = FeatureEngineer(registry=self.adapter.feature_registry)
         X_tr_eng = eng.fit_transform(X_tr)
         X_val_eng = eng.transform(X_val)
 
@@ -146,8 +173,7 @@ class FoldRunner:
         X_val_sel = X_val_eng[sel_cols] if not self.ablation.get("no_feature_selection") else X_val_eng
 
         if self.ablation.get("no_engineered_features"):
-            from src.data.schema import FEATURE_COLS
-            base_cols = [c for c in FEATURE_COLS if c in X_tr_sel.columns]
+            base_cols = [c for c in self._feature_cols if c in X_tr_sel.columns]
             X_tr_sel = X_tr_sel[base_cols]
             X_val_sel = X_val_sel[base_cols]
 
@@ -310,7 +336,10 @@ class FoldRunner:
         """
         hp_cfg = self.config.get("hp_search", {})
         if not hp_cfg.get("enabled", False):
-            return build_default_models()
+            return build_default_models(
+                numeric_cols=self._numeric_cols,
+                categorical_cols=self._categorical_cols,
+            )
 
         from src.models.tuner import HyperparameterTuner
         tuner = HyperparameterTuner(
@@ -336,7 +365,11 @@ class FoldRunner:
             metadata={"fold": str(fold_idx), "n_iter": tuner.n_iter, "n_cv": tuner.n_cv},
         )
         logger.info("Fold %s: HP search complete. Tuned params: %s", fold_idx, best_params)
-        return build_models_from_params(best_params)
+        return build_models_from_params(
+            best_params,
+            numeric_cols=self._numeric_cols,
+            categorical_cols=self._categorical_cols,
+        )
 
     def _train_final_ensemble(
         self,
@@ -345,7 +378,7 @@ class FoldRunner:
         exporter: ResultsExporter,
     ) -> "EnsembleCombiner":
         """Refit on the full training set for locked test evaluation."""
-        eng = FeatureEngineer()
+        eng = FeatureEngineer(registry=self.adapter.feature_registry)
         X_eng = eng.fit_transform(X_train)
 
         selector = ConsensusSelector(
@@ -360,8 +393,7 @@ class FoldRunner:
         X_sel = X_eng[sel_cols] if not self.ablation.get("no_feature_selection") else X_eng
 
         if self.ablation.get("no_engineered_features"):
-            from src.data.schema import FEATURE_COLS
-            base_cols = [c for c in FEATURE_COLS if c in X_sel.columns]
+            base_cols = [c for c in self._feature_cols if c in X_sel.columns]
             X_sel = X_sel[base_cols]
 
         base_models = self._build_base_models(X_sel, y_train, fold_idx="final")
@@ -414,8 +446,7 @@ class FoldRunner:
         X_test_sel = X_test_eng[sel_cols] if not ablation.get("no_feature_selection") else X_test_eng
 
         if ablation.get("no_engineered_features"):
-            from src.data.schema import FEATURE_COLS
-            base_cols = [c for c in FEATURE_COLS if c in X_test_sel.columns]
+            base_cols = [c for c in self._feature_cols if c in X_test_sel.columns]
             X_test_sel = X_test_sel[base_cols]
 
         all_probas = combiner.predict_proba_all(X_test_sel)

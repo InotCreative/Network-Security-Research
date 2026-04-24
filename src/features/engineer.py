@@ -30,20 +30,30 @@ class FeatureEngineer:
     Parameters
     ----------
     feature_names:
-        Subset of ENGINEERED_FEATURE_NAMES to compute. Default: all.
+        Subset of registry feature names to compute. Default: all of `registry`.
+    registry:
+        Optional list of FeatureSpec to use. Defaults to the UNSW-NB15 global
+        `FEATURE_REGISTRY` for backward compatibility. Pass
+        `adapter.feature_registry` when running on a different dataset.
     """
 
-    def __init__(self, feature_names: Optional[List[str]] = None) -> None:
+    def __init__(
+        self,
+        feature_names: Optional[List[str]] = None,
+        registry: Optional[List[FeatureSpec]] = None,
+    ) -> None:
+        if registry is None:
+            registry = FEATURE_REGISTRY
+        available_names = [spec.name for spec in registry]
         if feature_names is None:
-            feature_names = ENGINEERED_FEATURE_NAMES
-        # Validate requested names
-        valid = set(ENGINEERED_FEATURE_NAMES)
+            feature_names = list(available_names)
+        valid = set(available_names)
         bad = set(feature_names) - valid
         if bad:
             raise ValueError(f"Unknown engineered features: {bad}")
         self.feature_names = list(feature_names)
         self._specs: List[FeatureSpec] = [
-            spec for spec in FEATURE_REGISTRY if spec.name in set(feature_names)
+            spec for spec in registry if spec.name in set(feature_names)
         ]
         # Filled by fit()
         self._clip_bounds: Dict[str, Tuple[float, float]] = {}

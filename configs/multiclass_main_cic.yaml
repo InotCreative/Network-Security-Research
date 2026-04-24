@@ -1,0 +1,46 @@
+# CIC-IDS2017 multiclass experiment configuration
+# Second-dataset generalisation study for the calibrated ensemble IDS.
+# The CIC adapter consolidates raw sub-labels (e.g., "DoS GoldenEye" → "DoS")
+# and performs a deterministic 70/30 stratified split when train_path == test_path.
+
+dataset: cic_ids2017
+task: multiclass
+global_seed: 42
+
+# Data paths. Point either at:
+#   - a directory of CIC-IDS2017 CSVs (MachineLearningCVE/*.csv), OR
+#   - a single pre-merged CSV.
+# When train_path == test_path the adapter performs an internal stratified split.
+train_path: data/CIC-IDS2017
+test_path: data/CIC-IDS2017
+
+# Output directories (run_id subdirectory appended automatically)
+artifact_dir: artifacts
+reports_dir: reports
+
+# Cross-validation — identical settings to the UNSW main run for comparability
+n_outer_folds: 5
+n_oof_splits: 7
+n_inner_folds: 3
+
+# Feature selection — CIC has ~78 base numeric features + engineered ones,
+# so extend the grid slightly. The selector still picks the best k.
+k_grid: [8, 12, 16, 20, 24, 30, 36, 42, 50, 60, 72]
+
+gate_model: auto
+
+hp_search:
+  enabled: true
+  n_iter: 20
+  n_cv: 3
+  scoring: f1_macro
+
+# Ablation flags (all false for the main cross-dataset result)
+ablation:
+  no_calibration: false
+  no_gate: false
+  no_feature_selection: false
+  no_engineered_features: false
+  simplified_meta_features: false
+  no_stability_weighting: false
+  fixed_beta: null

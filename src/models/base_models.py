@@ -38,17 +38,42 @@ logger = logging.getLogger(__name__)
 
 
 class BaseModel(ABC):
-    """Abstract base for all learners in the ensemble."""
+    """Abstract base for all learners in the ensemble.
+
+    Parameters
+    ----------
+    numeric_cols, categorical_cols:
+        Column lists from the active dataset adapter. When omitted, the
+        preprocessor falls back to the UNSW-NB15 schema globals.
+    """
 
     name: str
     family: str   # 'tree' | 'linear' | 'knn'
 
-    def __init__(self) -> None:
-        self._preprocessor = get_preprocessor(self.family)
+    def __init__(
+        self,
+        numeric_cols: Optional[list] = None,
+        categorical_cols: Optional[list] = None,
+    ) -> None:
+        self._numeric_cols = numeric_cols
+        self._categorical_cols = categorical_cols
+        self._preprocessor = get_preprocessor(
+            self.family,
+            numeric_cols=numeric_cols,
+            categorical_cols=categorical_cols,
+        )
         self._estimator = self._build_estimator()
         self._n_classes: Optional[int] = None
         self._classes: Optional[np.ndarray] = None
         self._is_fitted = False
+
+    def _new_preprocessor(self):
+        """Helper used inside collect_oof to spawn a fresh fold-local preprocessor."""
+        return get_preprocessor(
+            self.family,
+            numeric_cols=self._numeric_cols,
+            categorical_cols=self._categorical_cols,
+        )
 
     @abstractmethod
     def _build_estimator(self):
@@ -109,7 +134,7 @@ class BaseModel(ABC):
             y_tr = np.asarray(y)[train_idx]
 
             # Fresh preprocessor per fold — never leak validation stats
-            fold_prep = get_preprocessor(self.family)
+            fold_prep = self._new_preprocessor()
             X_tr_t = fold_prep.fit_transform(X_tr)
             X_val_t = fold_prep.transform(X_val)
 
@@ -163,6 +188,8 @@ class RandomForestModel(BaseModel):
         max_depth: Optional[int] = None,
         min_samples_split: int = 5,
         max_features: str = "sqrt",
+        numeric_cols: Optional[list] = None,
+        categorical_cols: Optional[list] = None,
     ) -> None:
         self._params = dict(
             n_estimators=n_estimators,
@@ -170,7 +197,7 @@ class RandomForestModel(BaseModel):
             min_samples_split=min_samples_split,
             max_features=max_features,
         )
-        super().__init__()
+        super().__init__(numeric_cols=numeric_cols, categorical_cols=categorical_cols)
 
     def _build_estimator(self) -> RandomForestClassifier:
         return RandomForestClassifier(
@@ -194,6 +221,8 @@ class ExtraTreesModel(BaseModel):
         # (RF uses sqrt features + optimal thresholds; ET uses all features +
         #  random thresholds → genuinely orthogonal inductive bias)
         max_features: float = 1.0,
+        numeric_cols: Optional[list] = None,
+        categorical_cols: Optional[list] = None,
     ) -> None:
         self._params = dict(
             n_estimators=n_estimators,
@@ -201,7 +230,7 @@ class ExtraTreesModel(BaseModel):
             min_samples_split=min_samples_split,
             max_features=max_features,
         )
-        super().__init__()
+        super().__init__(numeric_cols=numeric_cols, categorical_cols=categorical_cols)
 
     def _build_estimator(self) -> ExtraTreesClassifier:
         return ExtraTreesClassifier(
@@ -224,6 +253,8 @@ class XGBoostModel(BaseModel):
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
         min_child_weight: int = 3,
+        numeric_cols: Optional[list] = None,
+        categorical_cols: Optional[list] = None,
     ) -> None:
         self._params = dict(
             n_estimators=n_estimators,
@@ -233,7 +264,7 @@ class XGBoostModel(BaseModel):
             colsample_bytree=colsample_bytree,
             min_child_weight=min_child_weight,
         )
-        super().__init__()
+        super().__init__(numeric_cols=numeric_cols, categorical_cols=categorical_cols)
 
     def _build_estimator(self) -> XGBClassifier:
         # Objective is set dynamically in fit() once we know n_classes.
@@ -283,7 +314,7 @@ class XGBoostModel(BaseModel):
             X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_tr = np.asarray(y)[train_idx]
 
-            fold_prep = get_preprocessor(self.family)
+            fold_prep = self._new_preprocessor()
             X_tr_t = fold_prep.fit_transform(X_tr)
             X_val_t = fold_prep.transform(X_val)
 
@@ -315,12 +346,14 @@ class KNNModel(BaseModel):
         self,
         n_neighbors: int = 10,
         metric: str = "euclidean",
+        numeric_cols: Optional[list] = None,
+        categorical_cols: Optional[list] = None,
     ) -> None:
         self._params = dict(
             n_neighbors=n_neighbors,
             metric=metric,
         )
-        super().__init__()
+        super().__init__(numeric_cols=numeric_cols, categorical_cols=categorical_cols)
 
     def _build_estimator(self) -> KNeighborsClassifier:
         # KNN has no random_state; reproducibility guaranteed by data order + seed
@@ -343,12 +376,27 @@ ALL_MODEL_CLASSES = {
 }
 
 
-def build_default_models() -> list:
-    """Return one instance of each base learner with default hyperparameters."""
-    return [cls() for cls in ALL_MODEL_CLASSES.values()]
+def build_default_models(
+    numeric_cols: Optional[list] = None,
+    categorical_cols: Optional[list] = None,
+) -> list:
+    """Return one instance of each base learner with default hyperparameters.
+
+    Adapter-aware column lists are threaded through to every preprocessor.
+    """
+    kwargs = {}
+    if numeric_cols is not None:
+        kwargs["numeric_cols"] = numeric_cols
+    if categorical_cols is not None:
+        kwargs["categorical_cols"] = categorical_cols
+    return [cls(**kwargs) for cls in ALL_MODEL_CLASSES.values()]
 
 
-def build_models_from_params(best_params: dict) -> list:
+def build_models_from_params(
+    best_params: dict,
+    numeric_cols: Optional[list] = None,
+    categorical_cols: Optional[list] = None,
+) -> list:
     """Return base learners instantiated from tuned hyperparameters.
 
     Parameters
@@ -356,12 +404,20 @@ def build_models_from_params(best_params: dict) -> list:
     best_params:
         Dict mapping model_name → kwargs dict as returned by
         HyperparameterTuner.tune_all(). Missing models fall back to defaults.
+    numeric_cols, categorical_cols:
+        Adapter-provided column lists threaded through each preprocessor.
     """
+    col_kwargs = {}
+    if numeric_cols is not None:
+        col_kwargs["numeric_cols"] = numeric_cols
+    if categorical_cols is not None:
+        col_kwargs["categorical_cols"] = categorical_cols
+
     models = []
     for name, cls in ALL_MODEL_CLASSES.items():
         params = best_params.get(name, {})
         try:
-            models.append(cls(**params))
+            models.append(cls(**params, **col_kwargs))
         except TypeError as exc:
             # Guard against unexpected param keys from a stale artifact
             import logging
@@ -369,5 +425,5 @@ def build_models_from_params(best_params: dict) -> list:
                 "Could not instantiate %s with tuned params %s (%s). "
                 "Falling back to defaults.", name, params, exc
             )
-            models.append(cls())
+            models.append(cls(**col_kwargs))
     return models

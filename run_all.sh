@@ -22,9 +22,11 @@
 # Ablation 12 answers: "Does consensus of 4 selectors beat one selector?"
 #
 # Usage:
-#   bash run_all.sh               # full suite
+#   bash run_all.sh               # full UNSW-NB15 suite
 #   bash run_all.sh --skip-tests  # skip pytest, run experiments only
 #   bash run_all.sh --main-only   # tests + multiclass main only (no ablations)
+#   bash run_all.sh --with-cic    # also run CIC-IDS2017 generalisation experiment
+#                                 #   (requires data/CIC-IDS2017/*.csv)
 #
 # Artifacts land in:  artifacts/<run_id>/
 # Reports land in:    reports/<run_id>/
@@ -47,18 +49,20 @@ header()  { echo -e "\n${BOLD}${CYAN}══════════════�
 # ── Argument parsing ───────────────────────────────────────────────────────────
 SKIP_TESTS=0
 MAIN_ONLY=0
+WITH_CIC=0
 
 for arg in "$@"; do
   case $arg in
     --skip-tests)   SKIP_TESTS=1 ;;
     --main-only)    MAIN_ONLY=1 ;;
+    --with-cic)     WITH_CIC=1 ;;
     --help|-h)
       sed -n '3,18p' "$0" | sed 's/^# \?//'
       exit 0
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: bash run_all.sh [--skip-tests] [--main-only]"
+      echo "Usage: bash run_all.sh [--skip-tests] [--main-only] [--with-cic]"
       exit 1
       ;;
   esac
@@ -93,6 +97,17 @@ for f in data/UNSW_NB15_training-set.csv data/UNSW_NB15_testing-set.csv; do
   fi
 done
 success "Data files found."
+
+# CIC-IDS2017 pre-flight (only when --with-cic was requested)
+CIC_DATA_PATH="data/CIC-IDS2017"
+if [[ $WITH_CIC -eq 1 ]]; then
+  if [[ ! -d "$CIC_DATA_PATH" ]] && [[ ! -f "$CIC_DATA_PATH" ]]; then
+    error "--with-cic set but '$CIC_DATA_PATH' not found."
+    error "Place the CIC-IDS2017 CSVs under data/CIC-IDS2017/ (or a single merged CSV at that path)."
+    exit 1
+  fi
+  success "CIC-IDS2017 data path found: $CIC_DATA_PATH"
+fi
 
 # ── Tracking ───────────────────────────────────────────────────────────────────
 SUITE_START=$(date +%s)
@@ -145,6 +160,13 @@ run_experiment "binary_sanity" "configs/binary_sanity.yaml"
 # ── 3. Multiclass main ─────────────────────────────────────────────────────────
 run_experiment "multiclass_main" "configs/multiclass_main.yaml"
 
+# ── 3b. CIC-IDS2017 generalisation (optional) ──────────────────────────────────
+if [[ $WITH_CIC -eq 1 ]]; then
+  run_experiment "multiclass_main_cic" "configs/multiclass_main_cic.yaml"
+else
+  STATUSES["multiclass_main_cic"]="SKIPPED"
+fi
+
 # ── 4–12. Ablations ───────────────────────────────────────────────────────────
 if [[ $MAIN_ONLY -eq 0 ]]; then
   # Component ablations (disable one novel contribution at a time)
@@ -178,7 +200,7 @@ printf "%-45s  %s\n" "Experiment" "Status"
 printf "%-45s  %s\n" "-----------------------------------------" "------"
 
 ALL_OK=1
-for key in tests binary_sanity multiclass_main \
+for key in tests binary_sanity multiclass_main multiclass_main_cic \
            ablation_no_calibration \
            ablation_no_feature_selection ablation_no_engineered_features \
            ablation_simplified_meta_features ablation_no_stability_weighting \
