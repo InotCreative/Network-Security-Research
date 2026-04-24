@@ -149,6 +149,23 @@ def test_cic_label_consolidation_unknown_raises():
         _consolidate_labels(raw)
 
 
+def test_cic_label_consolidation_handles_mojibake_separator():
+    """Regression guard: if any caller reads the raw CSV with a codec that
+    turns the Windows-1252 en-dash (0x96) into the Unicode replacement char
+    U+FFFD, the 'Web Attack' family must still map correctly.
+    """
+    from src.data.adapters.cic_ids2017 import _consolidate_labels
+    raw = pd.Series([
+        "Web Attack � Brute Force",     # '�' (replacement char)
+        "Web Attack � Sql Injection",
+        "Web Attack � XSS",
+        "Web Attack – Brute Force",     # '–' (proper en-dash)
+        "Web Attack - Brute Force",          # ascii hyphen
+    ])
+    mapped = _consolidate_labels(raw)
+    assert (mapped == "Web Attack").all(), mapped.tolist()
+
+
 def test_cic_column_normalisation():
     """Raw CIC headers (with leading space / inconsistent case) map cleanly."""
     from src.data.adapters.cic_ids2017 import _normalise_columns, _RAW_TO_CANONICAL
