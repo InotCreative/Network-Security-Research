@@ -1,0 +1,285 @@
+2026-04-25 03:12:14 | INFO     | __main__ | Run ID: 20260425_081214_0653e0
+2026-04-25 03:12:14 | INFO     | __main__ | Config: configs\ablations\single_selector.yaml
+2026-04-25 03:12:14 | INFO     | __main__ | Global seed: 42
+2026-04-25 03:12:14 | INFO     | src.data.loader | Loading data\UNSW_NB15_training-set.csv
+2026-04-25 03:12:15 | INFO     | src.data.loader | Loaded 82332 rows × 45 cols from data\UNSW_NB15_training-set.csv
+2026-04-25 03:12:15 | INFO     | src.data.loader | Loading data\UNSW_NB15_testing-set.csv
+2026-04-25 03:12:15 | INFO     | src.data.loader | Loaded 175341 rows × 45 cols from data\UNSW_NB15_testing-set.csv
+2026-04-25 03:12:15 | INFO     | src.data.loader | Train: 82332 samples | Test: 175341 samples | Task: multiclass
+2026-04-25 03:12:15 | INFO     | src.data.loader | Train class distribution: Normal=37000(44.9%) | Analysis=677(0.8%) | Backdoor=583(0.7%) | DoS=4089(5.0%) | Exploits=11132(13.5%) | Fuzzers=6062(7.4%) | Generic=18871(22.9%) | Reconnaissance=3496(4.2%) | Shellcode=378(0.5%) | Worms=44(0.1%)
+2026-04-25 03:12:15 | INFO     | src.data.loader | Test class distribution: Normal=56000(31.9%) | Analysis=2000(1.1%) | Backdoor=1746(1.0%) | DoS=12264(7.0%) | Exploits=33393(19.0%) | Fuzzers=18184(10.4%) | Generic=40000(22.8%) | Reconnaissance=10491(6.0%) | Shellcode=1133(0.6%) | Worms=130(0.1%)
+2026-04-25 03:12:15 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 1/5  (train=65865, val=16467) ═══
+2026-04-25 03:12:16 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 03:12:39 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:12:39 | INFO     | src.pipeline.fold_runner | Fold 0: selected 50 features. Top-5: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:12:39 | INFO     | src.pipeline.fold_runner | Fold 0: Running HP search (n_iter=20, n_cv=3) on 65865 samples, 50 features.
+2026-04-25 03:12:39 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 03:13:52 | INFO     | src.models.tuner |   random_forest → score=0.5988  params={'n_estimators': 500, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 15}
+2026-04-25 03:13:52 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 03:15:04 | INFO     | src.models.tuner |   extra_trees → score=0.6097  params={'n_estimators': 300, 'min_samples_split': 10, 'max_features': 0.75, 'max_depth': None}
+2026-04-25 03:15:04 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 03:17:58 | INFO     | src.models.tuner |   xgboost → score=0.5914  params={'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.1, 'colsample_bytree': 0.6}
+2026-04-25 03:17:58 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 03:19:52 | INFO     | src.models.tuner |   knn → score=0.5008  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 03:19:52 | INFO     | src.pipeline.fold_runner | Fold 0: HP search complete. Tuned params: {'random_forest': {'n_estimators': 500, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 15}, 'extra_trees': {'n_estimators': 300, 'min_samples_split': 10, 'max_features': 0.75, 'max_depth': None}, 'xgboost': {'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.1, 'colsample_bytree': 0.6}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 03:19:52 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 03:21:10 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 03:21:11 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 03:21:11 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 03:21:11 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 03:21:11 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6011 log_loss=0.3238 ECE=0.0257 → raw_w=1.8087
+2026-04-25 03:21:11 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6229 log_loss=0.3489 ECE=0.0344 → raw_w=1.7240
+2026-04-25 03:21:11 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6226 log_loss=0.3027 ECE=0.0040 → raw_w=2.0488
+2026-04-25 03:21:11 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5215 log_loss=0.4945 ECE=0.0487 → raw_w=1.0034
+2026-04-25 03:21:11 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.27495061746987043, 'extra_trees': 0.2526166684551764, 'xgboost': 0.3495455222808928, 'knn': 0.12288719179406049}
+2026-04-25 03:21:17 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:21:21 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:21:26 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:26:41 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0182  GB Brier=0.0141
+2026-04-25 03:26:48 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:26:50 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.12360  Tree MSE=0.08698
+2026-04-25 03:26:50 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.504 std=0.493
+2026-04-25 03:26:50 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 03:26:58 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | p_weighted                     macro_F1=0.6346  weighted_F1=0.8832  ECE=0.0355
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | p_stack                        macro_F1=0.5957  weighted_F1=0.8795  ECE=0.0229
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | p_final                        macro_F1=0.6545  weighted_F1=0.8893  ECE=0.0245
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | base_random_forest             macro_F1=0.6045  weighted_F1=0.8745  ECE=0.0457
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | cal_random_forest              macro_F1=0.6139  weighted_F1=0.8788  ECE=0.0241
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | base_extra_trees               macro_F1=0.6125  weighted_F1=0.8813  ECE=0.0305
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | cal_extra_trees                macro_F1=0.6385  weighted_F1=0.8857  ECE=0.0322
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | base_xgboost                   macro_F1=0.6126  weighted_F1=0.8764  ECE=0.0147
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | cal_xgboost                    macro_F1=0.6243  weighted_F1=0.8760  ECE=0.0046
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | base_knn                       macro_F1=0.5270  weighted_F1=0.8501  ECE=0.0335
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | Fold 0 | cal_knn                        macro_F1=0.5262  weighted_F1=0.8514  ECE=0.0426
+2026-04-25 03:27:05 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 2/5  (train=65865, val=16467) ═══
+2026-04-25 03:27:06 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 03:27:29 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:27:29 | INFO     | src.pipeline.fold_runner | Fold 1: selected 50 features. Top-5: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:27:29 | INFO     | src.pipeline.fold_runner | Fold 1: Running HP search (n_iter=20, n_cv=3) on 65865 samples, 50 features.
+2026-04-25 03:27:29 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 03:28:42 | INFO     | src.models.tuner |   random_forest → score=0.5957  params={'n_estimators': 400, 'min_samples_split': 10, 'max_features': 'log2', 'max_depth': None}
+2026-04-25 03:28:42 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 03:29:54 | INFO     | src.models.tuner |   extra_trees → score=0.6067  params={'n_estimators': 300, 'min_samples_split': 10, 'max_features': 0.75, 'max_depth': None}
+2026-04-25 03:29:54 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 03:32:44 | INFO     | src.models.tuner |   xgboost → score=0.5905  params={'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.15, 'colsample_bytree': 0.9}
+2026-04-25 03:32:44 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 03:34:39 | INFO     | src.models.tuner |   knn → score=0.5178  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 03:34:39 | INFO     | src.pipeline.fold_runner | Fold 1: HP search complete. Tuned params: {'random_forest': {'n_estimators': 400, 'min_samples_split': 10, 'max_features': 'log2', 'max_depth': None}, 'extra_trees': {'n_estimators': 300, 'min_samples_split': 10, 'max_features': 0.75, 'max_depth': None}, 'xgboost': {'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.15, 'colsample_bytree': 0.9}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 03:34:39 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 03:35:50 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 03:35:50 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 03:35:51 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 03:35:51 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 03:35:51 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6074 log_loss=0.3492 ECE=0.0317 → raw_w=1.6843
+2026-04-25 03:35:51 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6257 log_loss=0.3465 ECE=0.0343 → raw_w=1.7437
+2026-04-25 03:35:51 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6050 log_loss=0.2976 ECE=0.0029 → raw_w=2.0272
+2026-04-25 03:35:51 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5238 log_loss=0.4883 ECE=0.0473 → raw_w=1.0219
+2026-04-25 03:35:51 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.25089430332486423, 'extra_trees': 0.26623953944339424, 'xgboost': 0.3535036527071698, 'knn': 0.12936250452457176}
+2026-04-25 03:35:57 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:36:02 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:36:07 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:41:44 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0183  GB Brier=0.0141
+2026-04-25 03:41:54 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:41:55 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.12310  Tree MSE=0.08659
+2026-04-25 03:41:56 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.498 std=0.492
+2026-04-25 03:41:56 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 03:42:02 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | p_weighted                     macro_F1=0.6179  weighted_F1=0.8864  ECE=0.0369
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | p_stack                        macro_F1=0.6061  weighted_F1=0.8822  ECE=0.0216
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | p_final                        macro_F1=0.6573  weighted_F1=0.8914  ECE=0.0263
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | base_random_forest             macro_F1=0.6153  weighted_F1=0.8845  ECE=0.0372
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | cal_random_forest              macro_F1=0.6094  weighted_F1=0.8828  ECE=0.0343
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | base_extra_trees               macro_F1=0.6104  weighted_F1=0.8835  ECE=0.0319
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | cal_extra_trees                macro_F1=0.6199  weighted_F1=0.8847  ECE=0.0376
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | base_xgboost                   macro_F1=0.6040  weighted_F1=0.8823  ECE=0.0140
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | cal_xgboost                    macro_F1=0.6190  weighted_F1=0.8847  ECE=0.0072
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | base_knn                       macro_F1=0.5320  weighted_F1=0.8476  ECE=0.0366
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | Fold 1 | cal_knn                        macro_F1=0.5267  weighted_F1=0.8488  ECE=0.0462
+2026-04-25 03:42:10 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 3/5  (train=65866, val=16466) ═══
+2026-04-25 03:42:10 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 03:42:33 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:42:33 | INFO     | src.pipeline.fold_runner | Fold 2: selected 50 features. Top-5: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:42:33 | INFO     | src.pipeline.fold_runner | Fold 2: Running HP search (n_iter=20, n_cv=3) on 65866 samples, 50 features.
+2026-04-25 03:42:33 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 03:43:46 | INFO     | src.models.tuner |   random_forest → score=0.6087  params={'n_estimators': 100, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 20}
+2026-04-25 03:43:46 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 03:45:00 | INFO     | src.models.tuner |   extra_trees → score=0.5985  params={'n_estimators': 200, 'min_samples_split': 2, 'max_features': 1.0, 'max_depth': None}
+2026-04-25 03:45:00 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 03:47:49 | INFO     | src.models.tuner |   xgboost → score=0.5989  params={'subsample': 0.9, 'n_estimators': 200, 'min_child_weight': 7, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.9}
+2026-04-25 03:47:49 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 03:49:42 | INFO     | src.models.tuner |   knn → score=0.4976  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 03:49:42 | INFO     | src.pipeline.fold_runner | Fold 2: HP search complete. Tuned params: {'random_forest': {'n_estimators': 100, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 20}, 'extra_trees': {'n_estimators': 200, 'min_samples_split': 2, 'max_features': 1.0, 'max_depth': None}, 'xgboost': {'subsample': 0.9, 'n_estimators': 200, 'min_child_weight': 7, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.9}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 03:49:42 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 03:50:50 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 03:50:51 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 03:50:51 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 03:50:51 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 03:50:51 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6118 log_loss=0.3313 ECE=0.0269 → raw_w=1.7968
+2026-04-25 03:50:51 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6179 log_loss=0.3466 ECE=0.0272 → raw_w=1.7343
+2026-04-25 03:50:51 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6224 log_loss=0.2929 ECE=0.0036 → raw_w=2.1171
+2026-04-25 03:50:51 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5150 log_loss=0.4888 ECE=0.0473 → raw_w=1.0037
+2026-04-25 03:50:51 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.26528750789275, 'extra_trees': 0.24921503248716279, 'xgboost': 0.36546865082966473, 'knn': 0.12002880879042252}
+2026-04-25 03:50:56 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:51:01 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:51:06 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:56:22 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0181  GB Brier=0.0138
+2026-04-25 03:56:31 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 03:56:33 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.11878  Tree MSE=0.08776
+2026-04-25 03:56:33 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.475 std=0.491
+2026-04-25 03:56:33 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 03:56:39 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | p_weighted                     macro_F1=0.6172  weighted_F1=0.8826  ECE=0.0343
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | p_stack                        macro_F1=0.5998  weighted_F1=0.8812  ECE=0.0220
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | p_final                        macro_F1=0.6586  weighted_F1=0.8895  ECE=0.0221
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | base_random_forest             macro_F1=0.6021  weighted_F1=0.8817  ECE=0.0310
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | cal_random_forest              macro_F1=0.5936  weighted_F1=0.8777  ECE=0.0286
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | base_extra_trees               macro_F1=0.6141  weighted_F1=0.8834  ECE=0.0328
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | cal_extra_trees                macro_F1=0.6176  weighted_F1=0.8836  ECE=0.0280
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | base_xgboost                   macro_F1=0.6209  weighted_F1=0.8788  ECE=0.0128
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | cal_xgboost                    macro_F1=0.6168  weighted_F1=0.8799  ECE=0.0051
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | base_knn                       macro_F1=0.5223  weighted_F1=0.8430  ECE=0.0420
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | Fold 2 | cal_knn                        macro_F1=0.5259  weighted_F1=0.8441  ECE=0.0497
+2026-04-25 03:56:47 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 4/5  (train=65866, val=16466) ═══
+2026-04-25 03:56:47 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 03:57:10 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:57:10 | INFO     | src.pipeline.fold_runner | Fold 3: selected 50 features. Top-5: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 03:57:10 | INFO     | src.pipeline.fold_runner | Fold 3: Running HP search (n_iter=20, n_cv=3) on 65866 samples, 50 features.
+2026-04-25 03:57:10 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 03:58:24 | INFO     | src.models.tuner |   random_forest → score=0.6016  params={'n_estimators': 500, 'min_samples_split': 5, 'max_features': 'log2', 'max_depth': 15}
+2026-04-25 03:58:24 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 03:59:38 | INFO     | src.models.tuner |   extra_trees → score=0.6012  params={'n_estimators': 500, 'min_samples_split': 5, 'max_features': 0.3, 'max_depth': 20}
+2026-04-25 03:59:38 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 04:02:27 | INFO     | src.models.tuner |   xgboost → score=0.5883  params={'subsample': 0.9, 'n_estimators': 200, 'min_child_weight': 7, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.9}
+2026-04-25 04:02:27 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 04:04:25 | INFO     | src.models.tuner |   knn → score=0.5091  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 04:04:25 | INFO     | src.pipeline.fold_runner | Fold 3: HP search complete. Tuned params: {'random_forest': {'n_estimators': 500, 'min_samples_split': 5, 'max_features': 'log2', 'max_depth': 15}, 'extra_trees': {'n_estimators': 500, 'min_samples_split': 5, 'max_features': 0.3, 'max_depth': 20}, 'xgboost': {'subsample': 0.9, 'n_estimators': 200, 'min_child_weight': 7, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.9}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 04:04:25 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 04:05:43 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 04:05:44 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 04:05:44 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 04:05:44 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 04:05:44 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6012 log_loss=0.3284 ECE=0.0257 → raw_w=1.7836
+2026-04-25 04:05:44 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6110 log_loss=0.3193 ECE=0.0263 → raw_w=1.8630
+2026-04-25 04:05:44 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6196 log_loss=0.2943 ECE=0.0028 → raw_w=2.0996
+2026-04-25 04:05:44 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5190 log_loss=0.4858 ECE=0.0460 → raw_w=1.0193
+2026-04-25 04:05:44 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.25510977345037844, 'extra_trees': 0.2761950445130827, 'xgboost': 0.3499076695792757, 'knn': 0.11878751245726306}
+2026-04-25 04:05:50 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:05:56 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:06:01 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:11:44 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0187  GB Brier=0.0143
+2026-04-25 04:11:54 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:11:56 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.11287  Tree MSE=0.10092
+2026-04-25 04:11:56 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.479 std=0.492
+2026-04-25 04:11:56 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 04:12:04 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | p_weighted                     macro_F1=0.6180  weighted_F1=0.8823  ECE=0.0306
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | p_stack                        macro_F1=0.5964  weighted_F1=0.8794  ECE=0.0224
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | p_final                        macro_F1=0.6629  weighted_F1=0.8882  ECE=0.0298
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | base_random_forest             macro_F1=0.6121  weighted_F1=0.8722  ECE=0.0492
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | cal_random_forest              macro_F1=0.6041  weighted_F1=0.8765  ECE=0.0271
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | base_extra_trees               macro_F1=0.6182  weighted_F1=0.8795  ECE=0.0458
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | cal_extra_trees                macro_F1=0.6154  weighted_F1=0.8818  ECE=0.0244
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | base_xgboost                   macro_F1=0.5953  weighted_F1=0.8758  ECE=0.0120
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | cal_xgboost                    macro_F1=0.6218  weighted_F1=0.8800  ECE=0.0046
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | base_knn                       macro_F1=0.5099  weighted_F1=0.8438  ECE=0.0419
+2026-04-25 04:12:11 | INFO     | src.pipeline.fold_runner | Fold 3 | cal_knn                        macro_F1=0.4921  weighted_F1=0.8461  ECE=0.0489
+2026-04-25 04:12:12 | INFO     | src.pipeline.fold_runner | ═══ Outer fold 5/5  (train=65866, val=16466) ═══
+2026-04-25 04:12:12 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 04:12:35 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 04:12:35 | INFO     | src.pipeline.fold_runner | Fold 4: selected 50 features. Top-5: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 04:12:35 | INFO     | src.pipeline.fold_runner | Fold 4: Running HP search (n_iter=20, n_cv=3) on 65866 samples, 50 features.
+2026-04-25 04:12:35 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 04:13:49 | INFO     | src.models.tuner |   random_forest → score=0.6082  params={'n_estimators': 100, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 20}
+2026-04-25 04:13:49 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 04:15:02 | INFO     | src.models.tuner |   extra_trees → score=0.5958  params={'n_estimators': 500, 'min_samples_split': 5, 'max_features': 0.3, 'max_depth': 20}
+2026-04-25 04:15:02 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 04:17:50 | INFO     | src.models.tuner |   xgboost → score=0.5893  params={'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.1, 'colsample_bytree': 0.6}
+2026-04-25 04:17:50 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 04:19:47 | INFO     | src.models.tuner |   knn → score=0.5232  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 04:19:47 | INFO     | src.pipeline.fold_runner | Fold 4: HP search complete. Tuned params: {'random_forest': {'n_estimators': 100, 'min_samples_split': 10, 'max_features': 'sqrt', 'max_depth': 20}, 'extra_trees': {'n_estimators': 500, 'min_samples_split': 5, 'max_features': 0.3, 'max_depth': 20}, 'xgboost': {'subsample': 1.0, 'n_estimators': 200, 'min_child_weight': 5, 'max_depth': 4, 'learning_rate': 0.1, 'colsample_bytree': 0.6}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 04:19:47 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 04:20:50 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 04:20:51 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 04:20:51 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 04:20:51 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 04:20:51 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6190 log_loss=0.3310 ECE=0.0272 → raw_w=1.8189
+2026-04-25 04:20:51 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6169 log_loss=0.3206 ECE=0.0265 → raw_w=1.8734
+2026-04-25 04:20:51 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6116 log_loss=0.3018 ECE=0.0030 → raw_w=2.0205
+2026-04-25 04:20:51 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5297 log_loss=0.4863 ECE=0.0456 → raw_w=1.0396
+2026-04-25 04:20:51 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.2675145127939662, 'extra_trees': 0.28251263532311116, 'xgboost': 0.32725642185264964, 'knn': 0.12271643003027292}
+2026-04-25 04:20:57 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:21:04 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:21:09 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:26:41 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0186  GB Brier=0.0143
+2026-04-25 04:26:51 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:26:52 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.12078  Tree MSE=0.10940
+2026-04-25 04:26:53 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.482 std=0.491
+2026-04-25 04:26:53 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 04:26:58 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 04:27:05 | INFO     | src.pipeline.fold_runner | Fold 4 | p_weighted                     macro_F1=0.6040  weighted_F1=0.8803  ECE=0.0327
+2026-04-25 04:27:05 | INFO     | src.pipeline.fold_runner | Fold 4 | p_stack                        macro_F1=0.6001  weighted_F1=0.8767  ECE=0.0195
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | p_final                        macro_F1=0.6384  weighted_F1=0.8877  ECE=0.0247
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | base_random_forest             macro_F1=0.5966  weighted_F1=0.8815  ECE=0.0306
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | cal_random_forest              macro_F1=0.5979  weighted_F1=0.8782  ECE=0.0260
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | base_extra_trees               macro_F1=0.5923  weighted_F1=0.8781  ECE=0.0398
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | cal_extra_trees                macro_F1=0.6063  weighted_F1=0.8795  ECE=0.0275
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | base_xgboost                   macro_F1=0.6133  weighted_F1=0.8739  ECE=0.0152
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | cal_xgboost                    macro_F1=0.6111  weighted_F1=0.8751  ECE=0.0054
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | base_knn                       macro_F1=0.4997  weighted_F1=0.8461  ECE=0.0394
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | Fold 4 | cal_knn                        macro_F1=0.5040  weighted_F1=0.8479  ECE=0.0495
+2026-04-25 04:27:06 | INFO     | src.pipeline.fold_runner | ═══ Final evaluation on locked test set ═══
+2026-04-25 04:27:06 | INFO     | src.select.consensus | ConsensusSelector: using 1 selector(s): ['mutual_info']
+2026-04-25 04:27:35 | INFO     | src.select.consensus | Consensus selection: chosen_k=50 | top features: ['state', 'service', 'proto', 'load_per_pkt', 'rate_per_pkt']
+2026-04-25 04:27:35 | INFO     | src.pipeline.fold_runner | Fold final: Running HP search (n_iter=20, n_cv=3) on 82332 samples, 50 features.
+2026-04-25 04:27:35 | INFO     | src.models.tuner | HP search: random_forest         n_iter=20  n_cv=3
+2026-04-25 04:29:08 | INFO     | src.models.tuner |   random_forest → score=0.6194  params={'n_estimators': 300, 'min_samples_split': 5, 'max_features': 'sqrt', 'max_depth': 20}
+2026-04-25 04:29:08 | INFO     | src.models.tuner | HP search: extra_trees           n_iter=20  n_cv=3
+2026-04-25 04:31:02 | INFO     | src.models.tuner |   extra_trees → score=0.6044  params={'n_estimators': 400, 'min_samples_split': 2, 'max_features': 0.5, 'max_depth': 30}
+2026-04-25 04:31:02 | INFO     | src.models.tuner | HP search: xgboost               n_iter=20  n_cv=3
+2026-04-25 04:34:27 | INFO     | src.models.tuner |   xgboost → score=0.5967  params={'subsample': 1.0, 'n_estimators': 400, 'min_child_weight': 1, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.7}
+2026-04-25 04:34:27 | INFO     | src.models.tuner | HP search: knn                   n_iter=20  n_cv=3
+2026-04-25 04:37:23 | INFO     | src.models.tuner |   knn → score=0.5201  params={'n_neighbors': 5, 'metric': 'manhattan'}
+2026-04-25 04:37:23 | INFO     | src.pipeline.fold_runner | Fold final: HP search complete. Tuned params: {'random_forest': {'n_estimators': 300, 'min_samples_split': 5, 'max_features': 'sqrt', 'max_depth': 20}, 'extra_trees': {'n_estimators': 400, 'min_samples_split': 2, 'max_features': 0.5, 'max_depth': 30}, 'xgboost': {'subsample': 1.0, 'n_estimators': 400, 'min_child_weight': 1, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 0.7}, 'knn': {'n_neighbors': 5, 'metric': 'manhattan'}}
+2026-04-25 04:37:23 | INFO     | src.ensemble.combiner | Collecting OOF probabilities (4 models)…
+2026-04-25 04:39:21 | INFO     | src.ensemble.combiner | random_forest calibration method: isotonic
+2026-04-25 04:39:21 | INFO     | src.ensemble.combiner | extra_trees calibration method: isotonic
+2026-04-25 04:39:21 | INFO     | src.ensemble.combiner | xgboost calibration method: isotonic
+2026-04-25 04:39:22 | INFO     | src.ensemble.combiner | knn calibration method: isotonic
+2026-04-25 04:39:22 | INFO     | src.ensemble.weighted_avg | Model random_forest: macro_f1=0.6170 log_loss=0.3147 ECE=0.0243 → raw_w=1.9131
+2026-04-25 04:39:22 | INFO     | src.ensemble.weighted_avg | Model extra_trees: macro_f1=0.6256 log_loss=0.3198 ECE=0.0227 → raw_w=1.9116
+2026-04-25 04:39:22 | INFO     | src.ensemble.weighted_avg | Model xgboost: macro_f1=0.6177 log_loss=0.2795 ECE=0.0021 → raw_w=2.2059
+2026-04-25 04:39:22 | INFO     | src.ensemble.weighted_avg | Model knn: macro_f1=0.5338 log_loss=0.4823 ECE=0.0486 → raw_w=1.0529
+2026-04-25 04:39:22 | INFO     | src.ensemble.weighted_avg | Normalised model weights: {'random_forest': 0.2658372102459969, 'extra_trees': 0.2654382499039488, 'xgboost': 0.3562604528544503, 'knn': 0.112464086995604}
+2026-04-25 04:39:29 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:39:35 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:39:42 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:46:05 | INFO     | src.ensemble.stacker | Stacker selection: LR Brier=0.0174  GB Brier=0.0130
+2026-04-25 04:46:18 | INFO     | src.ensemble.stacker | MetaStacker fitted. Method: logistic
+2026-04-25 04:46:20 | INFO     | src.ensemble.gate | Gate selection: Ridge MSE=0.17907  Tree MSE=0.09523
+2026-04-25 04:46:20 | INFO     | src.ensemble.gate | DisagreementGate fitted. Model: tree. β* mean=0.465 std=0.491
+2026-04-25 04:46:20 | INFO     | src.ensemble.combiner | Refitting 4 base models on full outer-training set…
+2026-04-25 04:46:31 | INFO     | src.ensemble.combiner | EnsembleCombiner.fit() complete.
+2026-04-25 04:47:49 | INFO     | src.pipeline.fold_runner | Locked test evaluation complete.
+2026-04-25 04:47:49 | INFO     | src.pipeline.fold_runner | Integrity check PASSED: p_final (0.6543) beats p_stack (0.5996) by 0.0547 macro F1 over 5 outer folds.
+2026-04-25 04:47:49 | INFO     | src.eval.exporters | Statistical tests:
+          baseline  mean_diff  t_pvalue  significant_005
+        p_weighted   0.035991    0.0012             True
+           p_stack   0.054714    0.0003             True
+base_random_forest   0.048213    0.0001             True
+ cal_random_forest   0.050532    0.0005             True
+  base_extra_trees   0.044827    0.0000             True
+   cal_extra_trees   0.034771    0.0028             True
+      base_xgboost   0.045117    0.0033             True
+       cal_xgboost   0.035725    0.0003             True
+          base_knn   0.136167    0.0000             True
+           cal_knn   0.139368    0.0001             True
+2026-04-25 04:47:58 | INFO     | src.eval.exporters | Agreement error slices:
+agreement_level  n_samples  accuracy  macro_f1  frac_of_total
+            low        111  0.225225  0.309382         0.0006
+         medium       8153  0.410646  0.328922         0.0465
+           high     167077  0.784914  0.514458         0.9529
+2026-04-25 04:47:58 | INFO     | src.eval.exporters | All artifacts exported to artifacts\20260425_081214_0653e0
+2026-04-25 04:47:58 | INFO     | src.utils.manifests | Run manifest saved → artifacts\20260425_081214_0653e0\run_manifest.yaml (57 artifacts)
+2026-04-25 04:47:58 | INFO     | src.pipeline.fold_runner | Run complete. Seed registry: {'outer_cv': 152281357, 'consensus_inner_cv': 1348885167, 'mi_selector': 762414628, 'surrogate_rf': 1628432892, 'hp_est_random_forest': 1137237236, 'hp_cv_random_forest': 1386215339, 'hp_rscv_random_forest': 630513492, 'hp_est_extra_trees': 803614562, 'hp_cv_extra_trees': 531831583, 'hp_rscv_extra_trees': 242905298, 'hp_est_xgboost': 479950201, 'hp_cv_xgboost': 986287059, 'hp_rscv_xgboost': 275815071, 'hp_est_knn': 672899284, 'hp_cv_knn': 1014956424, 'hp_rscv_knn': 1100441280, 'random_forest': 1852572748, 'extra_trees': 1626454526, 'xgboost': 493307356, 'oof_random_forest': 1218307608, 'oof_extra_trees': 1797460796, 'oof_xgboost': 684680223, 'oof_knn': 473095718, 'calibration_selection': 1707465448, 'stacker_oof': 146674265, 'meta_stacker_lr': 1967862038, 'meta_stacker_gb': 1895340747, 'stacker_sel': 1962279265, 'gate_tree': 756507736}
+2026-04-25 04:47:58 | INFO     | __main__ | Pipeline finished. Artifacts at artifacts\20260425_081214_0653e0

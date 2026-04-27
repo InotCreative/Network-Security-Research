@@ -1,0 +1,4 @@
+agreement_level,n_samples,accuracy,macro_f1,frac_of_total
+low,231,0.194805,0.183662,0.0013
+medium,8818,0.414606,0.324939,0.0503
+high,166292,0.787819,0.541645,0.9484

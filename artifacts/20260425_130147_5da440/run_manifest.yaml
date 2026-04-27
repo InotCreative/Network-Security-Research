@@ -1,0 +1,406 @@
+run_id: 20260425_130147_5da440
+config_path: configs\ablations\no_gate.yaml
+global_seed: 42
+started_at: '2026-04-25T13:01:47.519376'
+completed_at: '2026-04-25T14:39:05.110706'
+artifacts:
+- name: feature_stability
+  path: artifacts\20260425_130147_5da440\fold_0\feature_stability.csv
+  purpose: Feature stability and consensus scores per fold
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:02:43.288726'
+  metadata:
+    fold: 0
+    chosen_k: 36
+- name: selected_features
+  path: artifacts\20260425_130147_5da440\fold_0\selected_features.json
+  purpose: Consensus-selected feature set with rankings
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:02:43.301128'
+  metadata:
+    fold: 0
+    n_selected: 36
+- name: hp_search_fold0
+  path: artifacts\20260425_130147_5da440\fold_0\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T13:08:37.106412'
+  metadata:
+    fold: '0'
+    n_iter: 20
+    n_cv: 3
+- name: model_card_random_forest_fold0
+  path: artifacts\20260425_130147_5da440\model_cards\random_forest_fold0.md
+  purpose: Model card with config and metrics
+  produced_by: random_forest
+  timestamp: '2026-04-25T13:15:20.834344'
+  metadata:
+    fold: 0
+- name: model_card_extra_trees_fold0
+  path: artifacts\20260425_130147_5da440\model_cards\extra_trees_fold0.md
+  purpose: Model card with config and metrics
+  produced_by: extra_trees
+  timestamp: '2026-04-25T13:15:20.834909'
+  metadata:
+    fold: 0
+- name: model_card_xgboost_fold0
+  path: artifacts\20260425_130147_5da440\model_cards\xgboost_fold0.md
+  purpose: Model card with config and metrics
+  produced_by: xgboost
+  timestamp: '2026-04-25T13:15:20.835637'
+  metadata:
+    fold: 0
+- name: model_card_knn_fold0
+  path: artifacts\20260425_130147_5da440\model_cards\knn_fold0.md
+  purpose: Model card with config and metrics
+  produced_by: knn
+  timestamp: '2026-04-25T13:15:20.836145'
+  metadata:
+    fold: 0
+- name: feature_stability
+  path: artifacts\20260425_130147_5da440\fold_1\feature_stability.csv
+  purpose: Feature stability and consensus scores per fold
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:16:14.666096'
+  metadata:
+    fold: 1
+    chosen_k: 42
+- name: selected_features
+  path: artifacts\20260425_130147_5da440\fold_1\selected_features.json
+  purpose: Consensus-selected feature set with rankings
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:16:14.667994'
+  metadata:
+    fold: 1
+    n_selected: 42
+- name: hp_search_fold1
+  path: artifacts\20260425_130147_5da440\fold_1\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T13:22:30.272674'
+  metadata:
+    fold: '1'
+    n_iter: 20
+    n_cv: 3
+- name: model_card_random_forest_fold1
+  path: artifacts\20260425_130147_5da440\model_cards\random_forest_fold1.md
+  purpose: Model card with config and metrics
+  produced_by: random_forest
+  timestamp: '2026-04-25T13:29:56.027269'
+  metadata:
+    fold: 1
+- name: model_card_extra_trees_fold1
+  path: artifacts\20260425_130147_5da440\model_cards\extra_trees_fold1.md
+  purpose: Model card with config and metrics
+  produced_by: extra_trees
+  timestamp: '2026-04-25T13:29:56.027814'
+  metadata:
+    fold: 1
+- name: model_card_xgboost_fold1
+  path: artifacts\20260425_130147_5da440\model_cards\xgboost_fold1.md
+  purpose: Model card with config and metrics
+  produced_by: xgboost
+  timestamp: '2026-04-25T13:29:56.028490'
+  metadata:
+    fold: 1
+- name: model_card_knn_fold1
+  path: artifacts\20260425_130147_5da440\model_cards\knn_fold1.md
+  purpose: Model card with config and metrics
+  produced_by: knn
+  timestamp: '2026-04-25T13:29:56.029017'
+  metadata:
+    fold: 1
+- name: feature_stability
+  path: artifacts\20260425_130147_5da440\fold_2\feature_stability.csv
+  purpose: Feature stability and consensus scores per fold
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:30:50.769151'
+  metadata:
+    fold: 2
+    chosen_k: 50
+- name: selected_features
+  path: artifacts\20260425_130147_5da440\fold_2\selected_features.json
+  purpose: Consensus-selected feature set with rankings
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:30:50.770275'
+  metadata:
+    fold: 2
+    n_selected: 50
+- name: hp_search_fold2
+  path: artifacts\20260425_130147_5da440\fold_2\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T13:38:06.411432'
+  metadata:
+    fold: '2'
+    n_iter: 20
+    n_cv: 3
+- name: model_card_random_forest_fold2
+  path: artifacts\20260425_130147_5da440\model_cards\random_forest_fold2.md
+  purpose: Model card with config and metrics
+  produced_by: random_forest
+  timestamp: '2026-04-25T13:45:48.688555'
+  metadata:
+    fold: 2
+- name: model_card_extra_trees_fold2
+  path: artifacts\20260425_130147_5da440\model_cards\extra_trees_fold2.md
+  purpose: Model card with config and metrics
+  produced_by: extra_trees
+  timestamp: '2026-04-25T13:45:48.689192'
+  metadata:
+    fold: 2
+- name: model_card_xgboost_fold2
+  path: artifacts\20260425_130147_5da440\model_cards\xgboost_fold2.md
+  purpose: Model card with config and metrics
+  produced_by: xgboost
+  timestamp: '2026-04-25T13:45:48.689821'
+  metadata:
+    fold: 2
+- name: model_card_knn_fold2
+  path: artifacts\20260425_130147_5da440\model_cards\knn_fold2.md
+  purpose: Model card with config and metrics
+  produced_by: knn
+  timestamp: '2026-04-25T13:45:48.690408'
+  metadata:
+    fold: 2
+- name: feature_stability
+  path: artifacts\20260425_130147_5da440\fold_3\feature_stability.csv
+  purpose: Feature stability and consensus scores per fold
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:46:41.981896'
+  metadata:
+    fold: 3
+    chosen_k: 50
+- name: selected_features
+  path: artifacts\20260425_130147_5da440\fold_3\selected_features.json
+  purpose: Consensus-selected feature set with rankings
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T13:46:41.991335'
+  metadata:
+    fold: 3
+    n_selected: 50
+- name: hp_search_fold3
+  path: artifacts\20260425_130147_5da440\fold_3\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T13:53:49.587837'
+  metadata:
+    fold: '3'
+    n_iter: 20
+    n_cv: 3
+- name: model_card_random_forest_fold3
+  path: artifacts\20260425_130147_5da440\model_cards\random_forest_fold3.md
+  purpose: Model card with config and metrics
+  produced_by: random_forest
+  timestamp: '2026-04-25T14:01:36.346266'
+  metadata:
+    fold: 3
+- name: model_card_extra_trees_fold3
+  path: artifacts\20260425_130147_5da440\model_cards\extra_trees_fold3.md
+  purpose: Model card with config and metrics
+  produced_by: extra_trees
+  timestamp: '2026-04-25T14:01:36.346862'
+  metadata:
+    fold: 3
+- name: model_card_xgboost_fold3
+  path: artifacts\20260425_130147_5da440\model_cards\xgboost_fold3.md
+  purpose: Model card with config and metrics
+  produced_by: xgboost
+  timestamp: '2026-04-25T14:01:36.347730'
+  metadata:
+    fold: 3
+- name: model_card_knn_fold3
+  path: artifacts\20260425_130147_5da440\model_cards\knn_fold3.md
+  purpose: Model card with config and metrics
+  produced_by: knn
+  timestamp: '2026-04-25T14:01:36.348322'
+  metadata:
+    fold: 3
+- name: feature_stability
+  path: artifacts\20260425_130147_5da440\fold_4\feature_stability.csv
+  purpose: Feature stability and consensus scores per fold
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T14:02:30.894754'
+  metadata:
+    fold: 4
+    chosen_k: 50
+- name: selected_features
+  path: artifacts\20260425_130147_5da440\fold_4\selected_features.json
+  purpose: Consensus-selected feature set with rankings
+  produced_by: ConsensusSelector
+  timestamp: '2026-04-25T14:02:30.896431'
+  metadata:
+    fold: 4
+    n_selected: 50
+- name: hp_search_fold4
+  path: artifacts\20260425_130147_5da440\fold_4\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T14:09:38.547610'
+  metadata:
+    fold: '4'
+    n_iter: 20
+    n_cv: 3
+- name: model_card_random_forest_fold4
+  path: artifacts\20260425_130147_5da440\model_cards\random_forest_fold4.md
+  purpose: Model card with config and metrics
+  produced_by: random_forest
+  timestamp: '2026-04-25T14:16:56.979230'
+  metadata:
+    fold: 4
+- name: model_card_extra_trees_fold4
+  path: artifacts\20260425_130147_5da440\model_cards\extra_trees_fold4.md
+  purpose: Model card with config and metrics
+  produced_by: extra_trees
+  timestamp: '2026-04-25T14:16:56.991489'
+  metadata:
+    fold: 4
+- name: model_card_xgboost_fold4
+  path: artifacts\20260425_130147_5da440\model_cards\xgboost_fold4.md
+  purpose: Model card with config and metrics
+  produced_by: xgboost
+  timestamp: '2026-04-25T14:16:56.992428'
+  metadata:
+    fold: 4
+- name: model_card_knn_fold4
+  path: artifacts\20260425_130147_5da440\model_cards\knn_fold4.md
+  purpose: Model card with config and metrics
+  produced_by: knn
+  timestamp: '2026-04-25T14:16:56.993224'
+  metadata:
+    fold: 4
+- name: hp_search_foldfinal
+  path: artifacts\20260425_130147_5da440\fold_final\hp_search_results.json
+  purpose: Tuned base-model hyperparameters from RandomizedSearchCV
+  produced_by: HyperparameterTuner
+  timestamp: '2026-04-25T14:27:53.242642'
+  metadata:
+    fold: final
+    n_iter: 20
+    n_cv: 3
+- name: final_ensemble
+  path: artifacts\20260425_130147_5da440\final_ensemble.joblib
+  purpose: Final ensemble trained on full training set
+  produced_by: fold_runner
+  timestamp: '2026-04-25T14:37:39.522342'
+  metadata: {}
+- name: fold_results
+  path: artifacts\20260425_130147_5da440\fold_results.csv
+  purpose: Per-fold metrics for all methods
+  produced_by: fold_runner
+  timestamp: '2026-04-25T14:38:56.851764'
+  metadata: {}
+- name: results_main_multiclass
+  path: artifacts\20260425_130147_5da440\results_main_multiclass.csv
+  purpose: Aggregated cross-fold metrics for paper table
+  produced_by: fold_runner
+  timestamp: '2026-04-25T14:38:56.860953'
+  metadata: {}
+- name: statistical_tests
+  path: artifacts\20260425_130147_5da440\statistical_tests.csv
+  purpose: 'Pairwise significance tests: p_final vs all baselines'
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:56.887622'
+  metadata: {}
+- name: confusion_matrix_p_weighted
+  path: reports\20260425_130147_5da440\cm_p_weighted.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:57.325330'
+  metadata: {}
+- name: confusion_matrix_p_stack
+  path: reports\20260425_130147_5da440\cm_p_stack.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:57.920336'
+  metadata: {}
+- name: confusion_matrix_p_final
+  path: reports\20260425_130147_5da440\cm_p_final.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:58.545202'
+  metadata: {}
+- name: confusion_matrix_base_random_forest
+  path: reports\20260425_130147_5da440\cm_base_random_forest.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:59.062684'
+  metadata: {}
+- name: confusion_matrix_cal_random_forest
+  path: reports\20260425_130147_5da440\cm_cal_random_forest.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:38:59.604924'
+  metadata: {}
+- name: confusion_matrix_base_extra_trees
+  path: reports\20260425_130147_5da440\cm_base_extra_trees.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:00.138715'
+  metadata: {}
+- name: confusion_matrix_cal_extra_trees
+  path: reports\20260425_130147_5da440\cm_cal_extra_trees.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:00.680846'
+  metadata: {}
+- name: confusion_matrix_base_xgboost
+  path: reports\20260425_130147_5da440\cm_base_xgboost.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:01.234740'
+  metadata: {}
+- name: confusion_matrix_cal_xgboost
+  path: reports\20260425_130147_5da440\cm_cal_xgboost.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:01.775119'
+  metadata: {}
+- name: confusion_matrix_base_knn
+  path: reports\20260425_130147_5da440\cm_base_knn.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:02.260292'
+  metadata: {}
+- name: confusion_matrix_cal_knn
+  path: reports\20260425_130147_5da440\cm_cal_knn.png
+  purpose: Confusion matrix heatmap
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:02.790982'
+  metadata: {}
+- name: results_test_locked
+  path: artifacts\20260425_130147_5da440\results_test_locked.csv
+  purpose: Locked test-set metrics (final evaluation only)
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:02.956703'
+  metadata: {}
+- name: reliability_diagram_random_forest
+  path: reports\20260425_130147_5da440\reliability_random_forest.png
+  purpose: Reliability diagram
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:03.088203'
+  metadata: {}
+- name: reliability_diagram_extra_trees
+  path: reports\20260425_130147_5da440\reliability_extra_trees.png
+  purpose: Reliability diagram
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:03.146005'
+  metadata: {}
+- name: reliability_diagram_xgboost
+  path: reports\20260425_130147_5da440\reliability_xgboost.png
+  purpose: Reliability diagram
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:03.205997'
+  metadata: {}
+- name: reliability_diagram_knn
+  path: reports\20260425_130147_5da440\reliability_knn.png
+  purpose: Reliability diagram
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:03.269719'
+  metadata: {}
+- name: agreement_error_slices
+  path: artifacts\20260425_130147_5da440\agreement_error_slices.csv
+  purpose: "Error slices by base-model agreement level (design doc \xA710)"
+  produced_by: exporters
+  timestamp: '2026-04-25T14:39:05.046862'
+  metadata: {}

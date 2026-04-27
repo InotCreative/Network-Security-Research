@@ -1,0 +1,23 @@
+[
+  {
+    "agreement_level": "low",
+    "n_samples": 237,
+    "accuracy": 0.168776,
+    "macro_f1": 0.092765,
+    "frac_of_total": 0.0014
+  },
+  {
+    "agreement_level": "medium",
+    "n_samples": 8465,
+    "accuracy": 0.412168,
+    "macro_f1": 0.307261,
+    "frac_of_total": 0.0483
+  },
+  {
+    "agreement_level": "high",
+    "n_samples": 166639,
+    "accuracy": 0.787505,
+    "macro_f1": 0.527804,
+    "frac_of_total": 0.9504
+  }
+]

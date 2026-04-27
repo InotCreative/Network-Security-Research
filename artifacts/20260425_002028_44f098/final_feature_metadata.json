@@ -1,0 +1,443 @@
+{
+  "engineered_features": [
+    {
+      "name": "byte_ratio",
+      "display_name": "Source Byte Dominance Ratio",
+      "formula_desc": "sbytes / (sbytes + dbytes + \u03b5)",
+      "input_cols": [
+        "sbytes",
+        "dbytes"
+      ],
+      "category": "ratio",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "pkt_ratio",
+      "display_name": "Source Packet Dominance Ratio",
+      "formula_desc": "spkts / (spkts + dpkts + \u03b5)",
+      "input_cols": [
+        "spkts",
+        "dpkts"
+      ],
+      "category": "ratio",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "load_ratio",
+      "display_name": "Source Load Dominance Ratio",
+      "formula_desc": "sload / (sload + dload + \u03b5)",
+      "input_cols": [
+        "sload",
+        "dload"
+      ],
+      "category": "ratio",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "ttl_diff",
+      "display_name": "TTL Asymmetry",
+      "formula_desc": "sttl - dttl",
+      "input_cols": [
+        "sttl",
+        "dttl"
+      ],
+      "category": "asymmetry",
+      "clipping_policy": [
+        "percentile",
+        0.5,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        -190.0,
+        254.0
+      ]
+    },
+    {
+      "name": "inter_pkt_ratio",
+      "display_name": "Source Interpacket Dominance",
+      "formula_desc": "sinpkt / (sinpkt + dinpkt + \u03b5)",
+      "input_cols": [
+        "sinpkt",
+        "dinpkt"
+      ],
+      "category": "asymmetry",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "jit_ratio",
+      "display_name": "Source Jitter Dominance",
+      "formula_desc": "sjit / (sjit + djit + \u03b5)",
+      "input_cols": [
+        "sjit",
+        "djit"
+      ],
+      "category": "asymmetry",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "mean_pkt_src",
+      "display_name": "Mean Source Packet Size",
+      "formula_desc": "sbytes / (spkts + \u03b5)",
+      "input_cols": [
+        "sbytes",
+        "spkts"
+      ],
+      "category": "packet_size",
+      "clipping_policy": [
+        "percentile",
+        0.0,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        23.999999975999998,
+        1217.2005567609665
+      ]
+    },
+    {
+      "name": "mean_pkt_dst",
+      "display_name": "Mean Destination Packet Size",
+      "formula_desc": "dbytes / (dpkts + \u03b5)",
+      "input_cols": [
+        "dbytes",
+        "dpkts"
+      ],
+      "category": "packet_size",
+      "clipping_policy": [
+        "percentile",
+        0.0,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1284.3192488252862
+      ]
+    },
+    {
+      "name": "pkt_size_asym",
+      "display_name": "Packet Size Asymmetry",
+      "formula_desc": "mean_pkt_src / (mean_pkt_src + mean_pkt_dst + \u03b5)",
+      "input_cols": [
+        "sbytes",
+        "spkts",
+        "dbytes",
+        "dpkts"
+      ],
+      "category": "packet_size",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "bytes_per_pkt_total",
+      "display_name": "Total Mean Packet Size",
+      "formula_desc": "(sbytes + dbytes) / (spkts + dpkts + \u03b5)",
+      "input_cols": [
+        "sbytes",
+        "dbytes",
+        "spkts",
+        "dpkts"
+      ],
+      "category": "packet_size",
+      "clipping_policy": [
+        "percentile",
+        0.0,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        23.999999975999998,
+        1096.9493243206184
+      ]
+    },
+    {
+      "name": "loss_rate",
+      "display_name": "Total Packet Loss Rate",
+      "formula_desc": "(sloss + dloss) / (spkts + dpkts + \u03b5)",
+      "input_cols": [
+        "sloss",
+        "dloss",
+        "spkts",
+        "dpkts"
+      ],
+      "category": "loss",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "src_loss_rate",
+      "display_name": "Source Packet Loss Rate",
+      "formula_desc": "sloss / (spkts + \u03b5)",
+      "input_cols": [
+        "sloss",
+        "spkts"
+      ],
+      "category": "loss",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "dst_loss_rate",
+      "display_name": "Destination Packet Loss Rate",
+      "formula_desc": "dloss / (dpkts + \u03b5)",
+      "input_cols": [
+        "dloss",
+        "dpkts"
+      ],
+      "category": "loss",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "tcp_setup_ratio",
+      "display_name": "SYN-ACK Proportion of RTT",
+      "formula_desc": "synack / (tcprtt + \u03b5)",
+      "input_cols": [
+        "synack",
+        "tcprtt"
+      ],
+      "category": "tcp",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "win_ratio",
+      "display_name": "Window Advertisement Asymmetry",
+      "formula_desc": "swin / (swin + dwin + \u03b5)",
+      "input_cols": [
+        "swin",
+        "dwin"
+      ],
+      "category": "tcp",
+      "clipping_policy": [
+        "clip_to_01"
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "name": "rate_per_pkt",
+      "display_name": "Flow Rate per Packet",
+      "formula_desc": "rate / (spkts + dpkts + \u03b5)",
+      "input_cols": [
+        "rate",
+        "spkts",
+        "dpkts"
+      ],
+      "category": "load",
+      "clipping_policy": [
+        "percentile",
+        0.0,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        500000.00125
+      ]
+    },
+    {
+      "name": "load_per_pkt",
+      "display_name": "Total Load per Packet",
+      "formula_desc": "(sload + dload) / (spkts + dpkts + \u03b5)",
+      "input_cols": [
+        "sload",
+        "dload",
+        "spkts",
+        "dpkts"
+      ],
+      "category": "load",
+      "clipping_policy": [
+        "percentile",
+        0.0,
+        99.5
+      ],
+      "clip_bounds_fitted": [
+        0.0,
+        531999999.73399997
+      ]
+    }
+  ],
+  "clip_bounds": {
+    "byte_ratio": [
+      0.0,
+      1.0
+    ],
+    "pkt_ratio": [
+      0.0,
+      1.0
+    ],
+    "load_ratio": [
+      0.0,
+      1.0
+    ],
+    "ttl_diff": [
+      -190.0,
+      254.0
+    ],
+    "inter_pkt_ratio": [
+      0.0,
+      1.0
+    ],
+    "jit_ratio": [
+      0.0,
+      1.0
+    ],
+    "mean_pkt_src": [
+      23.999999975999998,
+      1217.2005567609665
+    ],
+    "mean_pkt_dst": [
+      0.0,
+      1284.3192488252862
+    ],
+    "pkt_size_asym": [
+      0.0,
+      1.0
+    ],
+    "bytes_per_pkt_total": [
+      23.999999975999998,
+      1096.9493243206184
+    ],
+    "loss_rate": [
+      0.0,
+      1.0
+    ],
+    "src_loss_rate": [
+      0.0,
+      1.0
+    ],
+    "dst_loss_rate": [
+      0.0,
+      1.0
+    ],
+    "tcp_setup_ratio": [
+      0.0,
+      1.0
+    ],
+    "win_ratio": [
+      0.0,
+      1.0
+    ],
+    "rate_per_pkt": [
+      0.0,
+      500000.00125
+    ],
+    "load_per_pkt": [
+      0.0,
+      531999999.73399997
+    ]
+  },
+  "selected_features": [
+    "state",
+    "service",
+    "proto",
+    "load_per_pkt",
+    "rate_per_pkt",
+    "win_ratio",
+    "tcp_setup_ratio",
+    "bytes_per_pkt_total",
+    "mean_pkt_src",
+    "mean_pkt_dst",
+    "pkt_size_asym",
+    "byte_ratio",
+    "ct_srv_dst",
+    "ct_src_ltm",
+    "jit_ratio",
+    "inter_pkt_ratio",
+    "ttl_diff",
+    "load_ratio",
+    "pkt_ratio",
+    "ct_dst_src_ltm",
+    "swin",
+    "dmean",
+    "ct_srv_src",
+    "ct_state_ttl",
+    "ct_dst_ltm",
+    "ct_src_dport_ltm",
+    "ct_dst_sport_ltm",
+    "dttl",
+    "sttl",
+    "rate",
+    "dpkts",
+    "dur",
+    "spkts",
+    "sjit",
+    "smean",
+    "sload",
+    "dload",
+    "sloss",
+    "dloss",
+    "sinpkt",
+    "dinpkt",
+    "djit",
+    "sbytes",
+    "dbytes",
+    "ackdat",
+    "tcprtt",
+    "synack",
+    "src_loss_rate",
+    "dst_loss_rate",
+    "loss_rate"
+  ],
+  "chosen_k": 50,
+  "selector_weights": {
+    "anova_f": 0.45998888742165417,
+    "mutual_info": 0.4785076876853105,
+    "rf_importance": 0.4741230893600208,
+    "sgd_coef": 0.47292053475851337
+  }
+}

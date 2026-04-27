@@ -1,0 +1,11 @@
+baseline,mean_diff,std_diff,t_statistic,t_pvalue,wilcoxon_statistic,wilcoxon_pvalue,significant_005,significant_010
+p_weighted,-0.006991,0.025962,-0.5386,0.6188,5.0,0.7812,False,False
+p_stack,0.068915,0.1053,1.3089,0.2607,15.0,0.0312,False,False
+base_random_forest,-0.002996,0.027938,-0.2145,0.8407,6.0,0.6875,False,False
+cal_random_forest,0.00269,0.028162,0.191,0.8578,8.0,0.5,False,False
+base_extra_trees,0.003002,0.023309,0.2576,0.8094,9.0,0.4062,False,False
+cal_extra_trees,-0.000576,0.025575,-0.045,0.9662,8.0,0.5,False,False
+base_xgboost,0.000888,0.01903,0.0933,0.9302,9.0,0.4062,False,False
+cal_xgboost,-0.006234,0.023637,-0.5275,0.6258,5.0,0.7812,False,False
+base_knn,0.088999,0.028098,6.335,0.0032,15.0,0.0312,True,True
+cal_knn,0.098304,0.019603,10.0295,0.0006,15.0,0.0312,True,True

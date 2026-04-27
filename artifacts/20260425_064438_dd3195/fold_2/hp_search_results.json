@@ -1,0 +1,26 @@
+{
+  "random_forest": {
+    "n_estimators": 400,
+    "min_samples_split": 10,
+    "max_features": "log2",
+    "max_depth": null
+  },
+  "extra_trees": {
+    "n_estimators": 500,
+    "min_samples_split": 5,
+    "max_features": 0.3,
+    "max_depth": 20
+  },
+  "xgboost": {
+    "subsample": 0.9,
+    "n_estimators": 200,
+    "min_child_weight": 7,
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "colsample_bytree": 0.9
+  },
+  "knn": {
+    "n_neighbors": 5,
+    "metric": "manhattan"
+  }
+}
