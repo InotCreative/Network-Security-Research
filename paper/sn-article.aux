@@ -1,0 +1,169 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{moustafa2015unsw}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{2}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{2}{Introduction}{section.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Threat Model and Defensive Setting}{2}{section.2}\protected@file@percent }
+\newlabel{sec:threat}{{2}{2}{Threat Model and Defensive Setting}{section.2}{}}
+\citation{kasongo2020}
+\citation{zoghi2024}
+\citation{rani2025}
+\citation{zoghi2024}
+\citation{kasongo2020}
+\citation{alemerien2024ijit}
+\citation{thaljaoui2025}
+\citation{singh2021}
+\citation{platt1999}
+\citation{zadrozny2002}
+\citation{niculescu2005}
+\citation{kull2019}
+\citation{wolpert1992}
+\citation{cruz2015metades}
+\citation{jacobs1991moe}
+\citation{wang2018hybridFS}
+\citation{zhang2025ensemble}
+\citation{morin2007intrusion}
+\citation{tripp2006parallel}
+\citation{kalinin2023quantum}
+\citation{hariharan2023xai}
+\citation{kaushik2023performance}
+\citation{mohyeddine2023ensemble}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Related Work}{3}{section.3}\protected@file@percent }
+\newlabel{sec:related}{{3}{3}{Related Work}{section.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Intrusion detection on UNSW-NB15.}{3}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Calibration and reliability in security ML.}{3}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Ensemble disagreement and dynamic selection.}{3}{section*.4}\protected@file@percent }
+\citation{moustafa2015unsw}
+\@writefile{toc}{\contentsline {paragraph}{IDS and hacking-technique defence in JCVHT.}{4}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Gap addressed by this work.}{4}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Dataset and Preprocessing}{4}{section.4}\protected@file@percent }
+\newlabel{sec:data}{{4}{4}{Dataset and Preprocessing}{section.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces UNSW-NB15 official-split class distribution. The official split is not class-distribution stationary: Normal traffic is substantially less common in the locked test set ($-13.0$ percentage points), while Exploits, Fuzzers, DoS, and Reconnaissance increase. The shift column is computed as test percentage minus train percentage. Multi-class classification is the primary task in this paper.}}{5}{table.1}\protected@file@percent }
+\newlabel{tab:dataset}{{1}{5}{UNSW-NB15 official-split class distribution. The official split is not class-distribution stationary: Normal traffic is substantially less common in the locked test set ($-13.0$ percentage points), while Exploits, Fuzzers, DoS, and Reconnaissance increase. The shift column is computed as test percentage minus train percentage. Multi-class classification is the primary task in this paper}{table.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Top-10 most-shifted numeric features between train and test partitions of the official UNSW-NB15 split, ranked by absolute standardised mean difference (SMD). PSI is computed on 10 training-quantile bins; \emph  {n.a.} indicates degenerate quantile binning (e.g. heavy-tailed integer features). All values are computed directly from the official train/test CSVs.}}{5}{table.2}\protected@file@percent }
+\newlabel{tab:feature_shift}{{2}{5}{Top-10 most-shifted numeric features between train and test partitions of the official UNSW-NB15 split, ranked by absolute standardised mean difference (SMD). PSI is computed on 10 training-quantile bins; \emph {n.a.} indicates degenerate quantile binning (e.g. heavy-tailed integer features). All values are computed directly from the official train/test CSVs}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Audited engineered-feature registry. $\varepsilon = 10^{-9}$ is added to every denominator to avoid division by zero without shifting scale. Clipping bounds for percentile policies are fitted on the training fold of each outer split.}}{6}{table.3}\protected@file@percent }
+\newlabel{tab:registry}{{3}{6}{Audited engineered-feature registry. $\varepsilon = 10^{-9}$ is added to every denominator to avoid division by zero without shifting scale. Clipping bounds for percentile policies are fitted on the training fold of each outer split}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Stability-Weighted Consensus Feature Selection}{6}{section.5}\protected@file@percent }
+\newlabel{sec:selector}{{5}{6}{Stability-Weighted Consensus Feature Selection}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Proposed architecture. Out-of-fold probability vectors flow from each base learner through a per-class isotonic/sigmoid calibrator, then into two parallel paths: a reliability-criterion weighted average and a multinomial-logistic stacker over disagreement meta-features. A sample-level gate trained to regress the closed-form optimal mixing coefficient $\beta ^{*}(x)$ produces the final prediction.}}{7}{figure.1}\protected@file@percent }
+\newlabel{fig:architecture}{{1}{7}{Proposed architecture. Out-of-fold probability vectors flow from each base learner through a per-class isotonic/sigmoid calibrator, then into two parallel paths: a reliability-criterion weighted average and a multinomial-logistic stacker over disagreement meta-features. A sample-level gate trained to regress the closed-form optimal mixing coefficient $\beta ^{*}(x)$ produces the final prediction}{figure.1}{}}
+\newlabel{eq:selector_score}{{1}{7}{Stability-Weighted Consensus Feature Selection}{equation.5.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Calibrated Disagreement-Aware Ensemble}{7}{section.6}\protected@file@percent }
+\newlabel{sec:ensemble}{{6}{7}{Calibrated Disagreement-Aware Ensemble}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Architecture overview}{7}{subsection.6.1}\protected@file@percent }
+\newlabel{sec:arch}{{6.1}{7}{Architecture overview}{subsection.6.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Base learners}{7}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:base}{{6.2}{7}{Base learners}{subsection.6.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Out-of-fold probability collection}{8}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:oof}{{6.3}{8}{Out-of-fold probability collection}{subsection.6.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Per-base calibration}{8}{subsection.6.4}\protected@file@percent }
+\newlabel{sec:cal}{{6.4}{8}{Per-base calibration}{subsection.6.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Reliability-criterion weighted average}{8}{subsection.6.5}\protected@file@percent }
+\newlabel{sec:wa}{{6.5}{8}{Reliability-criterion weighted average}{subsection.6.5}{}}
+\newlabel{eq:wa_score}{{3}{8}{Reliability-criterion weighted average}{equation.6.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Disagreement-aware meta-features}{8}{subsection.6.6}\protected@file@percent }
+\newlabel{sec:meta}{{6.6}{8}{Disagreement-aware meta-features}{subsection.6.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.7}Stacker path}{9}{subsection.6.7}\protected@file@percent }
+\newlabel{sec:stack}{{6.7}{9}{Stacker path}{subsection.6.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.8}Disagreement-aware gate}{9}{subsection.6.8}\protected@file@percent }
+\newlabel{sec:gate}{{6.8}{9}{Disagreement-aware gate}{subsection.6.8}{}}
+\newlabel{eq:final}{{4}{9}{Disagreement-aware gate}{equation.6.4}{}}
+\newlabel{eq:beta_star}{{7}{9}{Disagreement-aware gate}{equation.6.7}{}}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces One outer fold of the proposed pipeline}}{10}{algorithm.1}\protected@file@percent }
+\newlabel{alg:pipeline}{{1}{10}{Disagreement-aware gate}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.9}Final locked-test training procedure}{10}{subsection.6.9}\protected@file@percent }
+\newlabel{sec:final_train}{{6.9}{10}{Final locked-test training procedure}{subsection.6.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.10}Hyperparameter search space and implementation details}{10}{subsection.6.10}\protected@file@percent }
+\newlabel{sec:hp_implementation}{{6.10}{10}{Hyperparameter search space and implementation details}{subsection.6.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Per-model hyperparameter search spaces used by \texttt  {RandomizedSearchCV} ($n\_\mathrm  {iter}=20$, three-fold inner CV, scoring \texttt  {f1\_macro}). The default values used as the starting point of the search space are documented in the codebase.}}{11}{table.4}\protected@file@percent }
+\newlabel{tab:hp_search}{{4}{11}{Per-model hyperparameter search spaces used by \texttt {RandomizedSearchCV} ($n\_\mathrm {iter}=20$, three-fold inner CV, scoring \texttt {f1\_macro}). The default values used as the starting point of the search space are documented in the codebase}{table.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.11}Class-imbalance handling}{11}{subsection.6.11}\protected@file@percent }
+\newlabel{sec:imbalance}{{6.11}{11}{Class-imbalance handling}{subsection.6.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Experimental Protocol}{12}{section.7}\protected@file@percent }
+\newlabel{sec:protocol}{{7}{12}{Experimental Protocol}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Folds and hyperparameter search}{12}{subsection.7.1}\protected@file@percent }
+\newlabel{sec:folds}{{7.1}{12}{Folds and hyperparameter search}{subsection.7.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Metrics and ablations}{12}{subsection.7.2}\protected@file@percent }
+\newlabel{sec:metrics}{{7.2}{12}{Metrics and ablations}{subsection.7.2}{}}
+\newlabel{eq:brier}{{8}{12}{Metrics and ablations}{equation.7.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Results}{12}{section.8}\protected@file@percent }
+\newlabel{sec:results}{{8}{12}{Results}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Selector behaviour}{12}{subsection.8.1}\protected@file@percent }
+\newlabel{sec:sel_results}{{8.1}{12}{Selector behaviour}{subsection.8.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Empirical selector behaviour from the final locked-test refit on the full training partition. The four selectors converge on near-identical weights, evidence of broad agreement on which features carry predictive signal under the calibration-aware penalty.}}{13}{table.5}\protected@file@percent }
+\newlabel{tab:selector_behaviour}{{5}{13}{Empirical selector behaviour from the final locked-test refit on the full training partition. The four selectors converge on near-identical weights, evidence of broad agreement on which features carry predictive signal under the calibration-aware penalty}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Cross-validated multi-class results}{13}{subsection.8.2}\protected@file@percent }
+\newlabel{sec:cv_results}{{8.2}{13}{Cross-validated multi-class results}{subsection.8.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Five-fold cross-validated multi-class results on the UNSW-NB15 training partition. Values in parentheses are standard deviations across folds. Bold marks the proposed system $p_{\mathrm  {final}}$ for orientation only; three diagnostic ablations (no\_calibration, no\_stability\_weighting, no\_engineered\_features) obtain slightly higher CV macro $F_{1}$, which we discuss in \S  \ref {sec:discussion}.}}{13}{table.6}\protected@file@percent }
+\newlabel{tab:cv_results}{{6}{13}{Five-fold cross-validated multi-class results on the UNSW-NB15 training partition. Values in parentheses are standard deviations across folds. Bold marks the proposed system $p_{\mathrm {final}}$ for orientation only; three diagnostic ablations (no\_calibration, no\_stability\_weighting, no\_engineered\_features) obtain slightly higher CV macro $F_{1}$, which we discuss in \S \ref {sec:discussion}}{table.6}{}}
+\@writefile{toc}{\contentsline {paragraph}{Statistical tests.}{14}{section*.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Paired statistical tests on macro $F_{1}$ across the five outer folds. \textbf  {$p_{\mathrm  {final}}$ wins every comparison.} Wilcoxon $p=0.0312$ is the saturation lower bound for $n=5$ paired observations.}}{14}{table.7}\protected@file@percent }
+\newlabel{tab:stat_tests}{{7}{14}{Paired statistical tests on macro $F_{1}$ across the five outer folds. \textbf {$p_{\mathrm {final}}$ wins every comparison.} Wilcoxon $p=0.0312$ is the saturation lower bound for $n=5$ paired observations}{table.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Locked test-set results}{14}{subsection.8.3}\protected@file@percent }
+\newlabel{sec:test_results}{{8.3}{14}{Locked test-set results}{subsection.8.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Locked-test multi-class results. The proposed system obtains the highest accuracy point estimate among the evaluated methods (its $95\%$ bootstrap CI overlaps base Extra Trees; see Table~\ref {tab:bootstrap}) and the strongest ROC-AUC among the three ensemble fusion paths. Plain weighted averaging obtains the highest ensemble macro $F_{1}$, while base Extra Trees obtains the best overall Brier score, ECE, ROC-AUC, and macro $F_{1}$ among the listed methods. Bold marks the best within the three ensemble fusion paths.}}{15}{table.8}\protected@file@percent }
+\newlabel{tab:test_results}{{8}{15}{Locked-test multi-class results. The proposed system obtains the highest accuracy point estimate among the evaluated methods (its $95\%$ bootstrap CI overlaps base Extra Trees; see Table~\ref {tab:bootstrap}) and the strongest ROC-AUC among the three ensemble fusion paths. Plain weighted averaging obtains the highest ensemble macro $F_{1}$, while base Extra Trees obtains the best overall Brier score, ECE, ROC-AUC, and macro $F_{1}$ among the listed methods. Bold marks the best within the three ensemble fusion paths}{table.8}{}}
+\newlabel{sec:bootstrap}{{8.3}{15}{Bootstrap confidence intervals}{section*.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Per-class precision, recall, $F_{1}$ and support on the locked test set}{15}{subsection.8.4}\protected@file@percent }
+\newlabel{sec:per_class}{{8.4}{15}{Per-class precision, recall, $F_{1}$ and support on the locked test set}{subsection.8.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Nonparametric percentile bootstrap $95\%$ confidence intervals on locked-test metrics ($B=300$ resamples, seed $42$). Overlapping intervals indicate that the corresponding metric difference is not statistically distinguishable at the $95\%$ level on this single test split.}}{16}{table.9}\protected@file@percent }
+\newlabel{tab:bootstrap}{{9}{16}{Nonparametric percentile bootstrap $95\%$ confidence intervals on locked-test metrics ($B=300$ resamples, seed $42$). Overlapping intervals indicate that the corresponding metric difference is not statistically distinguishable at the $95\%$ level on this single test split}{table.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-class precision, recall, $F_{1}$, and support on the locked test set for $p_{\mathrm  {final}}$, $p_{\mathrm  {weighted}}$, and base Extra Trees. Support is the number of test samples in each class.}}{16}{table.10}\protected@file@percent }
+\newlabel{tab:per_class}{{10}{16}{Per-class precision, recall, $F_{1}$, and support on the locked test set for $p_{\mathrm {final}}$, $p_{\mathrm {weighted}}$, and base Extra Trees. Support is the number of test samples in each class}{table.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Calibration evidence}{16}{subsection.8.5}\protected@file@percent }
+\newlabel{sec:calibration_results}{{8.5}{16}{Calibration evidence}{subsection.8.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Reliability diagrams for the four base learners (one outer fold). Each bar represents one max-confidence bin; bar height is the empirical accuracy in that bin. Grey diagonal: perfect calibration.}}{17}{figure.2}\protected@file@percent }
+\newlabel{fig:reliability}{{2}{17}{Reliability diagrams for the four base learners (one outer fold). Each bar represents one max-confidence bin; bar height is the empirical accuracy in that bin. Grey diagonal: perfect calibration}{figure.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}Ablation impact}{17}{subsection.8.6}\protected@file@percent }
+\newlabel{sec:ablation}{{8.6}{17}{Ablation impact}{subsection.8.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.7}Confusion matrix for the final system}{17}{subsection.8.7}\protected@file@percent }
+\newlabel{sec:cm}{{8.7}{17}{Confusion matrix for the final system}{subsection.8.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.8}Disagreement-error slices}{17}{subsection.8.8}\protected@file@percent }
+\newlabel{sec:slices}{{8.8}{17}{Disagreement-error slices}{subsection.8.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Locked-test reliability diagrams (15 max-confidence bins) for the strongest base learner and the three fusion paths. ECE values are reported in the panel titles. Although the proposed gated system improves fusion-path ROC-AUC and accuracy, base Extra Trees remains the best-calibrated method on the locked test set.}}{18}{figure.3}\protected@file@percent }
+\newlabel{fig:reliability_test}{{3}{18}{Locked-test reliability diagrams (15 max-confidence bins) for the strongest base learner and the three fusion paths. ECE values are reported in the panel titles. Although the proposed gated system improves fusion-path ROC-AUC and accuracy, base Extra Trees remains the best-calibrated method on the locked test set}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.9}Security-oriented metrics}{18}{subsection.8.9}\protected@file@percent }
+\newlabel{sec:security_metrics}{{8.9}{18}{Security-oriented metrics}{subsection.8.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Cross-validated macro $F_{1}$ across the proposed system and nine ablations. Error bars show the standard deviation across the five outer folds.}}{19}{figure.4}\protected@file@percent }
+\newlabel{fig:ablation}{{4}{19}{Cross-validated macro $F_{1}$ across the proposed system and nine ablations. Error bars show the standard deviation across the five outer folds}{figure.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Security-oriented locked-test metrics for the three fusion paths and the strongest single base learner. Attack recall and FAR are computed on the binary Normal-vs-Attack collapse of the 10-class predictions ($n_{\mathrm  {attack}}=119\,341$, $n_{\mathrm  {normal}}=56\,000$). All values are computed from the saved locked-test probability arrays.}}{19}{table.11}\protected@file@percent }
+\newlabel{tab:security_metrics}{{11}{19}{Security-oriented locked-test metrics for the three fusion paths and the strongest single base learner. Attack recall and FAR are computed on the binary Normal-vs-Attack collapse of the 10-class predictions ($n_{\mathrm {attack}}=119\,341$, $n_{\mathrm {normal}}=56\,000$). All values are computed from the saved locked-test probability arrays}{table.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.10}Paired bootstrap differences}{19}{subsection.8.10}\protected@file@percent }
+\newlabel{sec:paired_deltas}{{8.10}{19}{Paired bootstrap differences}{subsection.8.10}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Locked-test confusion matrix for the proposed system $p_{\mathrm  {final}}$. Rows are true classes, columns are predicted; cell intensity is the row-normalised frequency.}}{20}{figure.5}\protected@file@percent }
+\newlabel{fig:cm}{{5}{20}{Locked-test confusion matrix for the proposed system $p_{\mathrm {final}}$. Rows are true classes, columns are predicted; cell intensity is the row-normalised frequency}{figure.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Paired nonparametric bootstrap $\Delta $-CIs ($B=300$, seed $42$) for locked-test metric differences. CIs that exclude zero indicate statistically distinguishable differences under paired resampling on the same test instances.}}{20}{table.12}\protected@file@percent }
+\newlabel{tab:paired_deltas}{{12}{20}{Paired nonparametric bootstrap $\Delta $-CIs ($B=300$, seed $42$) for locked-test metric differences. CIs that exclude zero indicate statistically distinguishable differences under paired resampling on the same test instances}{table.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.11}Selective prediction and analyst escalation}{20}{subsection.8.11}\protected@file@percent }
+\newlabel{sec:selective}{{8.11}{20}{Selective prediction and analyst escalation}{subsection.8.11}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Locked-test accuracy and macro $F_{1}$ of $p_{\mathrm  {final}}$ stratified by base-learner agreement level.}}{21}{figure.6}\protected@file@percent }
+\newlabel{fig:slices}{{6}{21}{Locked-test accuracy and macro $F_{1}$ of $p_{\mathrm {final}}$ stratified by base-learner agreement level}{figure.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Selective-prediction policies on the locked test set using $p_{\mathrm  {final}}$. Coverage is the retained fraction; metrics are computed on the auto-classified (non-escalated) samples. ``Esc.\ med./low agree'' uses the four-base argmax-vote agreement defined in \S  \ref {sec:slices}. All values computed from the saved test predictions.}}{21}{table.13}\protected@file@percent }
+\newlabel{tab:selective}{{13}{21}{Selective-prediction policies on the locked test set using $p_{\mathrm {final}}$. Coverage is the retained fraction; metrics are computed on the auto-classified (non-escalated) samples. ``Esc.\ med./low agree'' uses the four-base argmax-vote agreement defined in \S \ref {sec:slices}. All values computed from the saved test predictions}{table.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Selective-prediction trade-off: accuracy and macro $F_{1}$ on retained (auto-classified) samples for six escalation policies on $p_{\mathrm  {final}}$. Coverage labels show the fraction of samples retained.}}{22}{figure.7}\protected@file@percent }
+\newlabel{fig:selective}{{7}{22}{Selective-prediction trade-off: accuracy and macro $F_{1}$ on retained (auto-classified) samples for six escalation policies on $p_{\mathrm {final}}$. Coverage labels show the fraction of samples retained}{figure.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.12}Gate diagnostics on the locked test set}{22}{subsection.8.12}\protected@file@percent }
+\newlabel{sec:gate_diag}{{8.12}{22}{Gate diagnostics on the locked test set}{subsection.8.12}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Gate $\beta (x)$ diagnostics on the locked test set. \emph  {Left}: empirical distribution of $\beta $ over all $175\,341$ test samples (mean $0.467$, std $0.385$); the bimodality observed in cross-validation persists at deployment. \emph  {Right}: mean $\beta $ stratified by base-learner agreement level, with error bars showing the within-stratum standard deviation. The gate's per-sample $\beta $ variance collapses sharply on the small disagreement-heavy strata.}}{23}{figure.8}\protected@file@percent }
+\newlabel{fig:beta}{{8}{23}{Gate $\beta (x)$ diagnostics on the locked test set. \emph {Left}: empirical distribution of $\beta $ over all $175\,341$ test samples (mean $0.467$, std $0.385$); the bimodality observed in cross-validation persists at deployment. \emph {Right}: mean $\beta $ stratified by base-learner agreement level, with error bars showing the within-stratum standard deviation. The gate's per-sample $\beta $ variance collapses sharply on the small disagreement-heavy strata}{figure.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.13}Minority-class failure modes and operational risk}{23}{subsection.8.13}\protected@file@percent }
+\newlabel{sec:operational_risk}{{8.13}{23}{Minority-class failure modes and operational risk}{subsection.8.13}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Operational risk profile by attack class. The ``Best $F_{1}$'' column is the highest per-class $F_{1}$ among the methods reported in Table~\ref {tab:per_class} (the three fusion paths and base Extra Trees) on the locked test set. The rare-class failures concentrate on attack categories with the most direct cyber-defence implications.}}{24}{table.14}\protected@file@percent }
+\newlabel{tab:operational_risk}{{14}{24}{Operational risk profile by attack class. The ``Best $F_{1}$'' column is the highest per-class $F_{1}$ among the methods reported in Table~\ref {tab:per_class} (the three fusion paths and base Extra Trees) on the locked test set. The rare-class failures concentrate on attack categories with the most direct cyber-defence implications}{table.14}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Discussion}{24}{section.9}\protected@file@percent }
+\newlabel{sec:discussion}{{9}{24}{Discussion}{section.9}{}}
+\@writefile{toc}{\contentsline {paragraph}{What failed under shift?}{24}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Why did it fail?}{24}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What should be deployed?}{24}{section*.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What remains useful?}{25}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{What does this mean for IDS research?}{25}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limitations and threats to validity.}{25}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Reproducibility.}{25}{section*.15}\protected@file@percent }
+\citation{moustafa2015unsw}
+\bibdata{references}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Conclusion and Future Work}{26}{section.10}\protected@file@percent }
+\newlabel{sec:conclusion}{{10}{26}{Conclusion and Future Work}{section.10}{}}
+\gdef \@abspage@last{26}
